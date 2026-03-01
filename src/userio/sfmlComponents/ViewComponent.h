@@ -20,6 +20,7 @@ namespace BS
 
         void lock();
         void unlock();
+        void resize(sf::Vector2u newSize);
     private:
         sf::View* view;
 

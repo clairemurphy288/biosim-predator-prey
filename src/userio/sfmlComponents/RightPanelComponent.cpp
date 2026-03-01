@@ -10,41 +10,64 @@ namespace BS
      * @param infoCallback Callback for showing informational child window
      */
     RightPanelComponent::RightPanelComponent(
-        sf::Vector2u windowSize, 
+        sf::Vector2u windowSize,
         std::function<void(std::string name, std::string val)> changeSettingsCallback_,
-        std::function<void()> infoCallback
+        std::function<void()> infoCallback,
+        std::function<void(float)> scaleChangedCallback
     )
     {
         this->changeSettingsCallback = changeSettingsCallback_;
+        this->labelOffset = 15.f * p.uiScale;
+        this->controlOffset = 20.f * p.uiScale;
+        this->widgetHeight = 24.f * p.uiScale;
+        this->widgetWidth = 150.f * p.uiScale;
 
         // create panel
         this->panel = tgui::Panel::create();
         this->panel->setSize("20%", windowSize.y);
         this->panel->setAutoLayout(tgui::AutoLayout::Right);
 
-        this->initSettingsComponents(infoCallback);
+        this->initSettingsComponents(infoCallback, scaleChangedCallback);
     }
 
     /**
      * Initializes values of settings components and places int on the pannel
      */
-    void RightPanelComponent::initSettingsComponents(std::function<void()> infoCallback)
+    void RightPanelComponent::initSettingsComponents(std::function<void()> infoCallback, std::function<void(float)> scaleChangedCallback)
     {
+        // setup UI scale combo box
+        /** 
+        tgui::ComboBox::Ptr scaleBox = tgui::ComboBox::create();
+        scaleBox->addItem("1x", "1.0");
+        scaleBox->addItem("1.5x", "1.5");
+        if (p.uiScale >= 1.5f)
+            scaleBox->setSelectedItemById("1.5");
+        else
+            scaleBox->setSelectedItemById("1.0");
+        scaleBox->setPosition("5%", "15%");
+        scaleBox->onItemSelect([scaleChangedCallback](const tgui::String&, const tgui::String& id) {
+            float scale = std::stof(id.toStdString());
+            scaleChangedCallback(scale);
+        });
+        this->panel->add(scaleBox, "ScaleBox");
+        this->createLabel(scaleBox, "UI Scale");*/
+
         // setup challenge box
-        this->challengeBoxComponent = new ChallengeBoxComponent([this](std::string name, std::string val) { 
-            this->changeSettingsCallback(name, val); 
+        this->challengeBoxComponent = new ChallengeBoxComponent([this](std::string name, std::string val) {
+            this->changeSettingsCallback(name, val);
         });
         tgui::ComboBox::Ptr challengeBox = this->challengeBoxComponent->getComboBox();
-        challengeBox->setPosition("5%", "15%");
+        challengeBox->setPosition({"5%", "15%"}); //bindBottom(scaleBox) + this->controlOffset});
+        challengeBox->setSize(this->widgetWidth, this->widgetHeight);
         this->panel->add(challengeBox, "ChallengeBox");
         this->createLabel(challengeBox, "Challenge");
 
         tgui::Button::Ptr challengeInfoBtn = tgui::Button::create("i");
-        challengeInfoBtn->setPosition({bindRight(challengeBox) + 5.f, bindTop(challengeBox)});
+        challengeInfoBtn->setPosition({bindRight(challengeBox) + 5.f * p.uiScale, bindTop(challengeBox)});
         challengeInfoBtn->onPress([infoCallback]() { 
             infoCallback(); 
         });
-        challengeInfoBtn->setHeight(challengeBox->getSize().y);
+        challengeInfoBtn->setSize(this->widgetHeight, this->widgetHeight);
         this->panel->add(challengeInfoBtn, "IndivInfoBtn");
 
         // setup mutation rate
@@ -57,6 +80,7 @@ namespace BS
         });
         tgui::ComboBox::Ptr barrierBox = this->barrierBoxComponent->getComboBox();
         barrierBox->setPosition({bindLeft(this->mutationRateEditBox), bindBottom(this->mutationRateEditBox) + this->controlOffset});
+        barrierBox->setSize(this->widgetWidth, this->widgetHeight);
         this->panel->add(barrierBox, "BarrierBox");
         this->createLabel(barrierBox, "Barrier");
 
@@ -69,6 +93,8 @@ namespace BS
         this->createConfirmButton(this->stepsPerGenerationEditBox, "stepspergeneration", "StepsPerGenerationButton");
 
         tgui::CheckBox::Ptr killBox = tgui::CheckBox::create();
+        float checkboxSize = 16.f * p.uiScale;
+        killBox->setSize(checkboxSize, checkboxSize);
         killBox->setPosition({bindLeft(this->stepsPerGenerationEditBox), bindBottom(this->stepsPerGenerationEditBox) + this->controlOffset});
         killBox->setText("Kill enabled");
         killBox->setChecked(p.killEnable);
@@ -85,6 +111,7 @@ namespace BS
     {
         tgui::EditBox::Ptr editBox = tgui::EditBox::create();
         editBox->setPosition({bindLeft(reference), bindBottom(reference) + this->controlOffset});
+        editBox->setSize(this->widgetWidth, this->widgetHeight);
         editBox->setText(text);
         this->panel->add(editBox);
         this->createLabel(editBox, name);
@@ -97,11 +124,11 @@ namespace BS
     void RightPanelComponent::createConfirmButton(tgui::EditBox::Ptr editBox, std::string settingsName, std::string name)
     {
         tgui::Button::Ptr button = tgui::Button::create("Ok");
-        button->setPosition({bindRight(editBox) + 2.f, bindTop(editBox)});
-        button->onPress([this, settingsName, editBox]() { 
-            this->changeSettingsCallback(settingsName, editBox->getText().toStdString()); 
+        button->setPosition({bindRight(editBox) + 2.f * p.uiScale, bindTop(editBox)});
+        button->onPress([this, settingsName, editBox]() {
+            this->changeSettingsCallback(settingsName, editBox->getText().toStdString());
         });
-        button->setHeight(editBox->getSize().y);
+        button->setSize(40.f * p.uiScale, editBox->getSize().y);
         this->panel->add(button, name);
     }
 

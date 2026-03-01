@@ -17,22 +17,25 @@ namespace BS
     {
     public:
         RightPanelComponent(
-            sf::Vector2u windowSize, 
+            sf::Vector2u windowSize,
             std::function<void(std::string name, std::string val)> changeSettingsCallback,
-            std::function<void()> infoCallback
+            std::function<void()> infoCallback,
+            std::function<void(float)> scaleChangedCallback
         );
         ~RightPanelComponent();
 
         tgui::Panel::Ptr getPanel() { return this->panel; }
 
         void addToPanel(const tgui::Widget::Ptr &widgetPtr, const tgui::String &widgetName = "");
-        void initSettingsComponents(std::function<void()> infoCallback);
+        void initSettingsComponents(std::function<void()> infoCallback, std::function<void(float)> scaleChangedCallback);
 
         void setFromParams();
 
     private:
-        const float labelOffset = 15.f;
-        const float controlOffset = 20.f;
+        float labelOffset;
+        float controlOffset;
+        float widgetHeight;
+        float widgetWidth;
 
         tgui::Panel::Ptr panel;
 

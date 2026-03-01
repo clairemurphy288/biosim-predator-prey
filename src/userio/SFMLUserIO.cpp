@@ -8,6 +8,8 @@ namespace BS
      */
     SFMLUserIO::SFMLUserIO()
     {
+        this->windowWidth = static_cast<int>(this->baseWindowWidth * p.uiScale);
+        this->windowHeight = static_cast<int>(this->baseWindowHeight * p.uiScale);
         this->window = new sf::RenderWindow(sf::VideoMode(this->windowWidth, this->windowHeight), "biosim4", sf::Style::Close | sf::Style::Titlebar);
         this->window->setFramerateLimit(144);
         this->window->setVerticalSyncEnabled(false);
@@ -16,6 +18,7 @@ namespace BS
         // setup gui
         this->gui.setWindow(*this->window);
         tgui::Theme::setDefault("./Resources/Black.txt");
+        this->gui.setTextSize(static_cast<unsigned>(13 * p.uiScale));
 
         // setup right panel component
         this->rightPanelComponent = new RightPanelComponent(
@@ -23,7 +26,7 @@ namespace BS
             [this](std::string name, std::string val) // changeSettingsCallback
             {
                 this->settingsChanged(name, val);
-            },            
+            },
             [this]() // infoCallback
             {
                 if (this->isChildWindowShowing)
@@ -36,7 +39,12 @@ namespace BS
                 }
                 this->childWindowToggled(true);
                 this->gui.add(this->infoWindowComponent->getChildWindow());
-            });
+            },
+            [this](float scale) // scaleChangedCallback
+            {
+                this->applyUiScale(scale);
+            }
+        );
 
         // setup flow control component
         this->flowControlComponent = new FlowControlComponent(
@@ -337,7 +345,7 @@ namespace BS
         this->bottomButtonsComponent->flushRestartButton();
 
         // init barriers
-        int liveDisplayScale = p.displayScale / 1.5;
+        int liveDisplayScale = this->getLiveDisplayScale();
         barriesrs.clear();
         auto const &barrierLocs = grid.getBarrierLocations();
         for (Coord loc : barrierLocs) {
@@ -429,7 +437,7 @@ namespace BS
      */
     int SFMLUserIO::getLiveDisplayScale()
     {
-        return p.displayScale / 1.5;
+        return p.displayScale / p.uiScale;
     }
 
     void SFMLUserIO::endOfGeneration(unsigned generation)
@@ -464,6 +472,23 @@ namespace BS
     void SFMLUserIO::settingsChanged(std::string name, std::string val)
     {
         paramManager.changeFromUi(name, val);
+    }
+
+    void SFMLUserIO::applyUiScale(float scale)
+    {
+        this->settingsChanged("uiscale", std::to_string(scale));
+
+        this->windowWidth = static_cast<int>(this->baseWindowWidth * scale);
+        this->windowHeight = static_cast<int>(this->baseWindowHeight * scale);
+
+        this->window->setSize(sf::Vector2u(this->windowWidth, this->windowHeight));
+        this->window->setPosition(sf::Vector2i(
+            200,
+            (sf::VideoMode::getDesktopMode().height - this->windowHeight) / 2));
+
+        this->rightPanelComponent->getPanel()->setSize("20%", this->windowHeight);
+        this->viewComponent->resize(sf::Vector2u(this->windowWidth, this->windowHeight));
+        this->view = this->viewComponent->getView();
     }
 
     void SFMLUserIO::speedChanged(float value)

@@ -1,4 +1,5 @@
 #include "ConsoleComponent.h"
+#include "../../simulator.h"
 
 namespace BS
 {
@@ -6,6 +7,7 @@ namespace BS
     {
         this->console = tgui::TextArea::create();
         this->console->setReadOnly(true);
+        this->console->setTextSize(static_cast<unsigned>(13 * p.uiScale));
         this->console->setSize("20%", "25%");
         this->console->setPosition("80%", "75%");
     }

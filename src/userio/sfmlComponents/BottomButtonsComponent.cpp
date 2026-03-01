@@ -33,18 +33,21 @@ namespace BS
         this->group->add(line);
 
         // setup buttons
-        float btnHorizontalMargin = 5.f;
-        float height = 27.f;
+        float btnHorizontalMargin = 5.f * p.uiScale;
+        float height = 27.f * p.uiScale;
+        float btnWidth = 72.f * p.uiScale;
+        float btnWidthSmall = 57.f * p.uiScale;
+
         tgui::Button::Ptr saveButton = tgui::Button::create("Save sim");
-        saveButton->setPosition({bindLeft(line) + 10.f, bindTop(line) - height - 10.f});
+        saveButton->setPosition({bindLeft(line) + 10.f * p.uiScale, bindTop(line) - height - 10.f * p.uiScale});
         saveButton->onPress([saveCallback]() { saveCallback(); });
-        saveButton->setHeight(height);
+        saveButton->setSize(btnWidth, height);
         this->group->add(saveButton, "SaveButton");
 
         tgui::Button::Ptr loadButton = tgui::Button::create("Load sim");
         loadButton->setPosition({bindRight(saveButton) + btnHorizontalMargin, bindTop(saveButton)});
         loadButton->onPress([loadCallback]() { loadCallback(); });
-        loadButton->setHeight(height);
+        loadButton->setSize(btnWidth, height);
         this->group->add(loadButton, "LoadButton");
 
         this->restartButton = tgui::ToggleButton::create("Restart");
@@ -52,11 +55,13 @@ namespace BS
         this->restartButton->onToggle([restartCallback](bool isDown) {
             restartCallback(isDown);
         });
-        this->restartButton->setHeight(height);
+        this->restartButton->setSize(btnWidthSmall, height);
         this->group->add(this->restartButton, "RestartButton");
 
         tgui::CheckBox::Ptr autosaveCheckBox = tgui::CheckBox::create("Autosave");
-        autosaveCheckBox->setPosition({bindLeft(saveButton), bindTop(loadButton) - autosaveCheckBox->getSize().y * 1.5f});
+        float checkboxSize = 16.f * p.uiScale;
+        autosaveCheckBox->setSize(checkboxSize, checkboxSize);
+        autosaveCheckBox->setPosition({bindLeft(saveButton), bindTop(loadButton) - checkboxSize * 2.0f});
         autosaveCheckBox->setText("Autosave");
         autosaveCheckBox->setChecked(p.autoSave);
         autosaveCheckBox->onChange([changeSettingsCallback](bool checked){
@@ -65,25 +70,25 @@ namespace BS
         this->group->add(autosaveCheckBox, "AutosaveCheckBox");
 
         tgui::Button::Ptr saveIndivBtn = tgui::Button::create("Save indiv");
-        saveIndivBtn->setPosition({bindRight(this->restartButton) - saveIndivBtn->getSize().x, bindTop(this->restartButton) - saveIndivBtn->getSize().y - 10.f});
+        saveIndivBtn->setSize(btnWidth, height);
+        saveIndivBtn->setPosition({bindRight(this->restartButton) - saveIndivBtn->getSize().x, bindTop(this->restartButton) - saveIndivBtn->getSize().y - 10.f * p.uiScale});
         saveIndivBtn->onPress([saveIndivCallback]() { saveIndivCallback(); });
-        saveIndivBtn->setHeight(height);
         this->group->add(saveIndivBtn, "SaveIndivBtn");
 
         tgui::Button::Ptr indivInfoBtn = tgui::Button::create("i");
+        indivInfoBtn->setSize(height, height);
         indivInfoBtn->setPosition({bindLeft(saveIndivBtn) - indivInfoBtn->getSize().x - btnHorizontalMargin, bindTop(saveIndivBtn)});
         indivInfoBtn->onPress([indivInfoCallback]() { indivInfoCallback(); });
-        indivInfoBtn->setHeight(height);
         this->group->add(indivInfoBtn, "IndivInfoBtn");
 
         this->selectPassedBtn = tgui::Button::create("Passed");
-        this->selectPassedBtn->setPosition({bindLeft(saveIndivBtn), bindTop(saveIndivBtn) - this->selectPassedBtn->getSize().y - 10.f});
-        this->selectPassedBtn->onPress([this]() { 
+        this->selectPassedBtn->setSize(btnWidthSmall, height);
+        this->selectPassedBtn->setPosition({bindLeft(saveIndivBtn), bindTop(saveIndivBtn) - this->selectPassedBtn->getSize().y - 10.f * p.uiScale});
+        this->selectPassedBtn->onPress([this]() {
             this->isSelectPassed = !this->isSelectPassed;
             this->selectPassedBtn->setText(this->isSelectPassed ? "Clear" : "Passed");
-            this->selectPassedCallback(this->isSelectPassed); 
+            this->selectPassedCallback(this->isSelectPassed);
         });
-        this->selectPassedBtn->setHeight(height);
         this->group->add(selectPassedBtn, "SelectPassedBtn");
     }    
     

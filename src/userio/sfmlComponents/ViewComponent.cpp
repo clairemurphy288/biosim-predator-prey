@@ -156,4 +156,14 @@ namespace BS
     {
         this->isLocked = false;
     }
+
+    void ViewComponent::resize(sf::Vector2u newSize)
+    {
+        this->windowWidth = newSize.x;
+        this->windowHeight = newSize.y;
+        this->view->setSize(sf::Vector2f(newSize.x, newSize.y));
+        this->view->setCenter(sf::Vector2f(newSize.x / 2.f, newSize.y / 2.f));
+        this->view->move(sf::Vector2f(-20.f, -20.f));
+        this->accumZoom = 1;
+    }
 }

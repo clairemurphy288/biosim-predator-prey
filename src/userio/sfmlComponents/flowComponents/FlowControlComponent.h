@@ -35,7 +35,7 @@ namespace BS
         void flushStopAtSmthButtons();
 
     private:
-        const float labelOffset = 15.f;
+        float labelOffset;
 
         tgui::Group::Ptr group;
 

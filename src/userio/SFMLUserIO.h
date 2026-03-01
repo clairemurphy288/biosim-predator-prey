@@ -59,8 +59,10 @@ namespace BS
 
         bool restartOnEnd = false;
     private:
-        int windowHeight = 900;
-        int windowWidth = 1200;
+        int baseWindowWidth = 1280;
+        int baseWindowHeight = 720;
+        int windowWidth;
+        int windowHeight;
         sf::RenderWindow* window;
 
         sf::View* view;
@@ -95,6 +97,7 @@ namespace BS
         std::vector<sf::RectangleShape> barriesrs;
 
         int getLiveDisplayScale();
+        void applyUiScale(float scale);
         uint16_t selectedIndex = 0; // selected individual index
 
         bool passedSelected = false;

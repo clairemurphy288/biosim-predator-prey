@@ -55,6 +55,7 @@ void ParamManager::setDefaults()
     privParams.videoStride = 25;
     privParams.videoSaveFirstFrames = 2;
     privParams.displayScale = 8;
+    privParams.uiScale = 1.0;
     privParams.agentSize = 4;
     privParams.genomeAnalysisStride = privParams.videoStride;
     privParams.displaySampleGenomes = 5;
@@ -247,6 +248,9 @@ void ParamManager::ingestParameter(std::string name, std::string val)
         }
         else if (name == "displayscale" && isUint && uVal > 0) {
             privParams.displayScale = uVal; break;
+        }
+        else if (name == "uiscale" && isFloat && (dVal == 1.0 || dVal == 1.5)) {
+            privParams.uiScale = dVal; break;
         }
         else if (name == "agentsize" && isFloat && dVal > 0.0) {
             privParams.agentSize = dVal; break;

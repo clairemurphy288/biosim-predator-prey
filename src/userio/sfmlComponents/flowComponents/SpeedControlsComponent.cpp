@@ -1,4 +1,5 @@
 #include "SpeedControlsComponent.h"
+#include "../../../simulator.h"
 
 namespace BS
 {
@@ -42,7 +43,7 @@ namespace BS
         speedControls->setStep(1);
         speedControls->setValue(initValue);
 
-        speedControls->setPosition({bindRight(minButton) + 5.f, bindBottom(this->positionReferenceWidget) + this->controlOffset});
+        speedControls->setPosition({bindRight(minButton) + 5.f * p.uiScale, bindBottom(this->positionReferenceWidget) + this->controlOffset});
         speedControls->setHeight(this->positionReferenceWidget->getSize().y);
         speedControls->setWidth("25%");
 
@@ -54,7 +55,7 @@ namespace BS
 
         // create MAX button
         tgui::Button::Ptr maxButton = tgui::Button::create("MAX");
-        maxButton->setPosition({bindRight(speedControls) + 5.f, bindBottom(this->positionReferenceWidget) + this->controlOffset});
+        maxButton->setPosition({bindRight(speedControls) + 5.f * p.uiScale, bindBottom(this->positionReferenceWidget) + this->controlOffset});
         maxButton->onPress([changeSpeedCallback, max, speedControls]()
         {
             changeSpeedCallback(max);

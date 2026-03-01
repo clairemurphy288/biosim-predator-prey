@@ -1,4 +1,5 @@
 #include "FlowControlComponent.h"
+#include "../../../simulator.h"
 
 namespace BS
 {
@@ -14,6 +15,7 @@ namespace BS
     {
         this->pauseCallback = pauseCallback_;
         this->stopAtSmthCallback = stopAtSmthCallback_;
+        this->labelOffset = 15.f * p.uiScale;
 
         this->group = tgui::Group::create();
         this->group->setPosition("0%", "0%");
@@ -22,13 +24,14 @@ namespace BS
         this->pausePicture = tgui::Picture::create("Resources/Pictures/play.png");
         this->pausePicture->onClick([this]()
                                     { this->pauseResume(); });
-        this->pausePicture->setPosition(5.f, 5.f);
+        this->pausePicture->setPosition(5.f * p.uiScale, 5.f * p.uiScale);
+        this->pausePicture->setSize(this->pausePicture->getSize().x * p.uiScale, this->pausePicture->getSize().y * p.uiScale);
         this->group->add(this->pausePicture, "Picture");
 
         // create StopAtStartButton
         this->stopAtStartButton = tgui::ToggleButton::create(">|");
-        this->stopAtStartButton->setPosition({bindRight(this->pausePicture) + 3.f, bindTop(this->pausePicture) + 6.f});
-        this->stopAtStartButton->setWidth(20.f);
+        this->stopAtStartButton->setPosition({bindRight(this->pausePicture) + 3.f * p.uiScale, bindTop(this->pausePicture) + 6.f * p.uiScale});
+        this->stopAtStartButton->setSize(20.f * p.uiScale, this->pausePicture->getSize().y - 6.f * p.uiScale);
         this->stopAtStartButton->onToggle([this](bool isDown) {
             if (isDown) {
                 this->stopAtSmthCallback(true, false);
@@ -43,13 +46,13 @@ namespace BS
         // setup generation progress bar
         this->generationProgressBar = tgui::ProgressBar::create();
         this->generationProgressBar->setMinimum(0);
-        this->generationProgressBar->setWidth("60%");
+        this->generationProgressBar->setSize("60%", this->stopAtStartButton->getSize().y);
         this->generationProgressBar->setPosition({bindRight(this->stopAtStartButton), bindTop(this->stopAtStartButton)});
         this->group->add(this->generationProgressBar, "GenerationProgressBar");
 
         this->stopAtEndButton = tgui::ToggleButton::create(">|");
-        this->stopAtEndButton->setPosition({bindRight(this->generationProgressBar) + 3.f, bindTop(this->generationProgressBar)});
-        this->stopAtEndButton->setWidth(20.f);
+        this->stopAtEndButton->setPosition({bindRight(this->generationProgressBar) + 3.f * p.uiScale, bindTop(this->generationProgressBar)});
+        this->stopAtEndButton->setSize(20.f * p.uiScale, this->stopAtStartButton->getSize().y);
         this->stopAtEndButton->onToggle([this](bool isDown) {
             if (isDown) {
                 this->stopAtSmthCallback(false, true);
@@ -61,7 +64,7 @@ namespace BS
         });
         this->group->add(this->stopAtEndButton, "StopAtEndButton");
 
-        SpeedControlsComponent *speedControlsComponent = new SpeedControlsComponent(this->pausePicture, this->group, 20.f);
+        SpeedControlsComponent *speedControlsComponent = new SpeedControlsComponent(this->pausePicture, this->group, 20.f * p.uiScale);
         speedControlsComponent->init(speedMin, speedMax, speedInitValue, changeSpeedCallback);
         tgui::Widget::Ptr referenceWidget = speedControlsComponent->getLabelReferenceWidget();
         this->createLabel(referenceWidget, "Speed");

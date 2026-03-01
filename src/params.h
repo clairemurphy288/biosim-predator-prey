@@ -46,6 +46,7 @@ struct Params {
     unsigned videoStride; // > 0
     unsigned videoSaveFirstFrames; // >= 0, overrides videoStride
     unsigned displayScale;
+    float uiScale; // 1.0 or 1.5 - scales window size and display
     unsigned agentSize;
     unsigned genomeAnalysisStride; // > 0
     unsigned displaySampleGenomes; // >= 0
