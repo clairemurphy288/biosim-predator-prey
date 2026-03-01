@@ -1,31 +1,41 @@
-# biosim4
+# biosim4-sfml
 
-Fork of https://github.com/davidrmiller/biosim4
+This is a fork of [biosim4](https://github.com/davidrmiller/biosim4) created by @davidrmiller with real time render and user interface. I've tried to preserve existing functionality, so my PR has no innovative ideas, it's almost pure cosmetic that can be turned of.
 
-### What has been done
+### A brief list of changes
 
-- heavy refactoring
-- a new output via SFML which renders individuals, challenge criterias and barriers in real-time with the ability to drag simulation (LMB), zoom in/out (scroll), select indiv (LMB)
-- UI to watch and control simulation with TGUI:
-  - pause/resume button, pause at start/end of generation
-  - slow or increase speed of simulation
-  - change some settings
-  - restart simulation
-  - save selected indiv's net to svg
-  - show indivs who would pass survival criteria if simulation end now
-- saving and loading simulations with "cereal" serialization library
+- Added a new output using SFML which renders individuals, challenge criterias and barriers in real-time with the ability to drag simulation (LMB), zoom in/out (scroll), and select indiv (LMB)
+- Added UI to watch and control simulation with TGUI library. Here is most notible controls:
+	- pause/resume button, pause at start/end of generation buttons
+	- component to slow or increase speed of simulation
+	- components for changing some settings
+	- button to restart the simulation
+	- button to save selected indiv's net to svg
+	- button to show indivs who would pass survival criteria if simulation would end now
+- Added the ability to save (manual or auto) and load simulations with "cereal" serialization library
 
 ![screenshot](https://github.com/ilyabrilev/biosim4/blob/main/screenshot.png?raw=true)
 
-### Plans
-- expand UI functionality to controll simulation
-- implement recording of simulation, add ability to play it with time skipping, ability to go back (etc.)
-- hopefuly add more behaviour, events, resources to simulation
+### Details about changes from the original
+
+- In simulator.cpp the entry point (`simulator` function) is used for top-level initialization and main application loop. Main simulation loop was extracted into new `simulate` function.
+- New directory `userio` is grouping together everything related to input and output. Class `UserIO` is an entry point. It is called at specific points of simulation life cycle and passes it to `SFMLUserIO` and/or `ImageWriter` depending on which were enabled at the construction of `UserIO`. `ImageWriter` has not undergone any changes.
+- `SFMLUserIO` is the main class for real life render. Display loop and event handling are done in this class. It also includes main window, view, all custom display components and child windows. All custom components are stored in `sfmlComponents` directory and created by `SFMLUserIO` with a heavy use of callback functions. Responsibility of custom components is to display UI, hey don't usually interact with simulation logic directly. 
+- `survivalCriteria` directory is where all challenges logic placed. It contains `SurvivalCriteriaManager` - a class that other parts of application are interacting with, and `SurvivalCriteria` successor classes that handles if certain indiv passes a criteria as well as displaying the criteria. The idea behind splitting criterias into dedicated classes was to make creating/disabling/enabling new challenges as easy as possible.
+- `ai` directory contains everything related to genomes, indivs, signals, etc. No major changes here
+- `utils` contains logic that not directly related to simulation, like: analysis, profiling tool, random number generator, and save/load system. save/load system uses cereal library which under the hood calls `serialize` function added for `Params`, `Peeps` and `Indiv`. Cereal library is located inside `include` library.
+- All output files now go into `Output` directory. This includes:
+	- Images for indiv's net
+	- Logs
+	- Profiling results
+	- Save files of previous simulations
 
 ### Requirements
 - sfml https://stackoverflow.com/questions/30696114/how-to-install-sfml-in-ubuntu
 - tgui 1.1 https://tgui.eu/tutorials/latest-stable/
 - cereal (it should work right of the box, but here is a link anyway https://uscilab.github.io/cereal/index.html)
+
+# Original readme
 
 ## What is this?
 
@@ -36,9 +46,10 @@ The results of the experiments are summarized in this YouTube video:
 
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;https://www.youtube.com/watch?v=N3tRFayqVtk
 
-This code lacks a friendly interface, so compiling and executing the program may
+This command line program lacks a friendly interface, so compiling and executing the program may
 require attention to details. If you ask questions in the Issues,
-I'll try to help if I can.
+I'll try to help if I can. For a nicer user interface, check out the
+[fork of this project](https://github.com/ilyabrilev/biosim4) hosted by @ilyabrilev.
 
 Document Contents
 -----------------
