@@ -71,6 +71,7 @@ void ParamManager::setDefaults()
     privParams.predatorFraction = 0.2;
     privParams.predatorMinCapturesToReproduce = 1;
     privParams.predatorCaptureNorm = 5;
+    privParams.predatorPreyPerceptionRadius = 6.0f;
 }
 
 
@@ -298,6 +299,9 @@ void ParamManager::ingestParameter(std::string name, std::string val)
         }
         else if (name == "predatorcapturenorm" && isUint && uVal > 0) {
             privParams.predatorCaptureNorm = uVal; break;
+        }
+        else if (name == "predatorpreyperceptionradius" && isFloat && dVal > 0.0) {
+            privParams.predatorPreyPerceptionRadius = static_cast<float>(dVal); break;
         }
         else {
             std::cout << "Invalid param: " << name << " = " << val << std::endl;

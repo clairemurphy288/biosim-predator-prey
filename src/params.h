@@ -67,6 +67,7 @@ struct Params {
     double predatorFraction; // 0.0..1.0
     unsigned predatorMinCapturesToReproduce; // >= 0
     unsigned predatorCaptureNorm; // > 0 (captures needed for score==1.0)
+    float predatorPreyPerceptionRadius; // > 0 (radius for predator/prey sensors)
 
     // These must not change after initialization
     uint16_t sizeX; // 2..0x10000

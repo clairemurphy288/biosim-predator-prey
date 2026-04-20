@@ -43,6 +43,12 @@ std::string sensorName(Sensor sensor)
         case SIGNAL0_FWD: return "signal 0 fwd"; break;
         case SIGNAL0_LR: return "signal 0 LR"; break;
         case GENETIC_SIM_FWD: return "genetic similarity fwd"; break;
+        case NEAREST_PREDATOR_DIR_X: return "nearest predator dir X"; break;
+        case NEAREST_PREDATOR_DIR_Y: return "nearest predator dir Y"; break;
+        case NEAREST_PREDATOR_DIST: return "nearest predator dist"; break;
+        case NEAREST_PREY_DIR_X: return "nearest prey dir X"; break;
+        case NEAREST_PREY_DIR_Y: return "nearest prey dir Y"; break;
+        case NEAREST_PREY_DIST: return "nearest prey dist"; break;
         default: assert(false); break;
     }
 }
@@ -100,6 +106,12 @@ std::string sensorShortName(Sensor sensor)
         case SIGNAL0_FWD: return "Sfd"; break;
         case SIGNAL0_LR: return "Slr"; break;
         case GENETIC_SIM_FWD: return "Gen"; break;
+        case NEAREST_PREDATOR_DIR_X: return "PrX"; break;
+        case NEAREST_PREDATOR_DIR_Y: return "PrY"; break;
+        case NEAREST_PREDATOR_DIST: return "PrD"; break;
+        case NEAREST_PREY_DIR_X: return "PyX"; break;
+        case NEAREST_PREY_DIR_Y: return "PyY"; break;
+        case NEAREST_PREY_DIST: return "PyD"; break;
         default: assert(false); break;
     }
 }

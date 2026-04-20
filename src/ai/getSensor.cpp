@@ -3,6 +3,7 @@
 #include <iostream>
 #include <cassert>
 #include <cmath>
+#include <limits>
 #include "../simulator.h"
 #include "../basicTypes.h"
 #include "../grid.h"
@@ -15,6 +16,56 @@ namespace BS {
 extern Grid grid;
 extern Signals signals;
 extern Peeps peeps;
+
+namespace
+{
+    struct NearestInfo
+    {
+        float dirX01 = 0.5f; // mapped -1..1 -> 0..1
+        float dirY01 = 0.5f;
+        float dist01 = 1.0f; // dist/radius (1 means none/out of range)
+    };
+
+    NearestInfo nearestAgentOfType(const Indiv &self, AgentType targetType, float radius)
+    {
+        NearestInfo out;
+        if (radius <= 0.f) {
+            return out;
+        }
+
+        float bestDistSq = std::numeric_limits<float>::infinity();
+        Coord bestOffset{0, 0};
+
+        auto f = [&](Coord tloc) {
+            if (tloc == self.loc) return;
+            if (!grid.isOccupiedAt(tloc)) return;
+            const Indiv &other = peeps.getIndiv(tloc);
+            if (!other.alive) return;
+            if (other.type != targetType) return;
+
+            const Coord off = tloc - self.loc;
+            const float d2 = static_cast<float>(off.x * off.x + off.y * off.y);
+            if (d2 < bestDistSq) {
+                bestDistSq = d2;
+                bestOffset = off;
+            }
+        };
+
+        visitNeighborhood(self.loc, radius, f);
+
+        if (bestDistSq != std::numeric_limits<float>::infinity()) {
+            const float dist = std::sqrt(bestDistSq);
+            const float inv = (dist > 0.f) ? (1.f / dist) : 0.f;
+            const float ux = static_cast<float>(bestOffset.x) * inv; // -1..1
+            const float uy = static_cast<float>(bestOffset.y) * inv; // -1..1
+            out.dirX01 = (ux + 1.f) * 0.5f;
+            out.dirY01 = (uy + 1.f) * 0.5f;
+            out.dist01 = std::min(1.f, std::max(0.f, dist / radius));
+        }
+
+        return out;
+    }
+}
 
 float getPopulationDensityAlongAxis(Coord loc, Dir dir)
 {
@@ -361,6 +412,42 @@ float Indiv::getSensor(Sensor sensorNum, unsigned simStep) const
                 sensorVal = genomeSimilarity(genome, indiv2.genome); // 0.0..1.0
             }
         }
+        break;
+    }
+    case Sensor::NEAREST_PREDATOR_DIR_X:
+    {
+        const NearestInfo info = nearestAgentOfType(*this, AgentType::PREDATOR, p.predatorPreyPerceptionRadius);
+        sensorVal = info.dirX01;
+        break;
+    }
+    case Sensor::NEAREST_PREDATOR_DIR_Y:
+    {
+        const NearestInfo info = nearestAgentOfType(*this, AgentType::PREDATOR, p.predatorPreyPerceptionRadius);
+        sensorVal = info.dirY01;
+        break;
+    }
+    case Sensor::NEAREST_PREDATOR_DIST:
+    {
+        const NearestInfo info = nearestAgentOfType(*this, AgentType::PREDATOR, p.predatorPreyPerceptionRadius);
+        sensorVal = info.dist01;
+        break;
+    }
+    case Sensor::NEAREST_PREY_DIR_X:
+    {
+        const NearestInfo info = nearestAgentOfType(*this, AgentType::PREY, p.predatorPreyPerceptionRadius);
+        sensorVal = info.dirX01;
+        break;
+    }
+    case Sensor::NEAREST_PREY_DIR_Y:
+    {
+        const NearestInfo info = nearestAgentOfType(*this, AgentType::PREY, p.predatorPreyPerceptionRadius);
+        sensorVal = info.dirY01;
+        break;
+    }
+    case Sensor::NEAREST_PREY_DIST:
+    {
+        const NearestInfo info = nearestAgentOfType(*this, AgentType::PREY, p.predatorPreyPerceptionRadius);
+        sensorVal = info.dist01;
         break;
     }
     default:

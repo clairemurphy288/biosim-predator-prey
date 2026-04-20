@@ -69,31 +69,13 @@ uint8_t Indiv::makeGeneticColor()
 
 void Indiv::fillColor()
 {
-    uint8_t rawColor = this->makeGeneticColor();
-    uint8_t color[3];
-
-    constexpr uint8_t minColorVal = 100;
-    constexpr uint8_t minLumaVal = 50;
-    auto rgbToLuma = [](uint8_t r, uint8_t g, uint8_t b) { return (r+r+r+b+g+g+g+g) / 8; };
-
-    color[0] = (rawColor);                  // R: 0..255
-    color[1] = ((rawColor & 0x1f) << 3);    // G: 0..255    & 00011111 << 3
-    color[2] = ((rawColor & 7)    << 5);    // B: 0..255    & 00000111 << 5
-
-    // Prevent color mappings to very bright colors (hard to see):
-    if (rgbToLuma(color[0], color[1], color[2]) < minLumaVal) {
-        if (color[0] < minColorVal) color[0] = 255 - color[0];
-        if (color[1] < minColorVal) color[1] = 255 - color[1];
-        if (color[2] < minColorVal) color[2] = 255 - color[2];
-    }
-
-	this->shape.setFillColor(sf::Color(color[0], color[1], color[2], 255));
-
-    // Predator-prey: distinguish agent types visually without destroying genetic color.
+    // Predator-prey: make type obvious even at very small dot sizes.
     if (this->type == AgentType::PREDATOR) {
-        this->shape.setOutlineColor(sf::Color(220, 60, 60));
-        this->shape.setOutlineThickness(1.f);
+        this->shape.setFillColor(sf::Color(220, 60, 60, 255));   // red
+        this->shape.setOutlineColor(sf::Color::White);
+        this->shape.setOutlineThickness(2.f);
     } else {
+        this->shape.setFillColor(sf::Color(60, 220, 120, 255));  // green
         this->shape.setOutlineThickness(0.f);
     }
 }

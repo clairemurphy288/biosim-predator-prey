@@ -56,6 +56,12 @@ enum Sensor {
     SIGNAL0,           // W strength of signal0 in neighborhood
     SIGNAL0_FWD,       // W strength of signal0 in the forward-reverse axis
     SIGNAL0_LR,        // W strength of signal0 in the left-right axis
+    NEAREST_PREDATOR_DIR_X, // W unit vector X to nearest predator in radius
+    NEAREST_PREDATOR_DIR_Y, // W unit vector Y to nearest predator in radius
+    NEAREST_PREDATOR_DIST,  // W distance/radius to nearest predator (0 near, 1 far/none)
+    NEAREST_PREY_DIR_X,     // W unit vector X to nearest prey in radius
+    NEAREST_PREY_DIR_Y,     // W unit vector Y to nearest prey in radius
+    NEAREST_PREY_DIST,      // W distance/radius to nearest prey (0 near, 1 far/none)
     NUM_SENSES,        // <<------------------ END OF ACTIVE SENSES MARKER
 };
 
