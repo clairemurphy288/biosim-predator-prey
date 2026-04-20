@@ -102,6 +102,16 @@ namespace BS
             this->changeSettingsCallback("killenable", checked ? "true" : "false");
         });
         this->panel->add(killBox, "KillBox");
+
+        // Predator-prey params (used by challenge = CHALLENGE_PREDATOR_PREY)
+        this->predatorFractionEditBox = this->createEditBox(killBox, tgui::String(p.predatorFraction), "Predator fraction");
+        this->createConfirmButton(this->predatorFractionEditBox, "predatorfraction", "PredatorFractionButton");
+
+        this->predatorMinCapturesEditBox = this->createEditBox(this->predatorFractionEditBox, tgui::String(p.predatorMinCapturesToReproduce), "Min captures (predators)");
+        this->createConfirmButton(this->predatorMinCapturesEditBox, "predatormincapturestoreproduce", "PredatorMinCapturesButton");
+
+        this->predatorCaptureNormEditBox = this->createEditBox(this->predatorMinCapturesEditBox, tgui::String(p.predatorCaptureNorm), "Capture norm (predators)");
+        this->createConfirmButton(this->predatorCaptureNormEditBox, "predatorcapturenorm", "PredatorCaptureNormButton");
     }
 
     /**
@@ -139,6 +149,12 @@ namespace BS
     {
         this->challengeBoxComponent->setFromParams();
         this->mutationRateEditBox->setText(tgui::String(p.pointMutationRate));
+        if (this->predatorFractionEditBox)
+            this->predatorFractionEditBox->setText(tgui::String(p.predatorFraction));
+        if (this->predatorMinCapturesEditBox)
+            this->predatorMinCapturesEditBox->setText(tgui::String(p.predatorMinCapturesToReproduce));
+        if (this->predatorCaptureNormEditBox)
+            this->predatorCaptureNormEditBox->setText(tgui::String(p.predatorCaptureNorm));
     }
 
     /**

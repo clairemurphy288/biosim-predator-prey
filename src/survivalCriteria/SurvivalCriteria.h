@@ -35,6 +35,7 @@ namespace BS
     constexpr unsigned CHALLENGE_ALTRUISM = 17;
     constexpr unsigned CHALLENGE_ALTRUISM_SACRIFICE = 18;
     constexpr unsigned CHALLENGE_CORNER_RANDOM = 19;
+    constexpr unsigned CHALLENGE_PREDATOR_PREY = 20;
 
     /**
      * Base class for survival criteria

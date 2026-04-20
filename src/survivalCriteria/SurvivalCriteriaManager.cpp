@@ -30,7 +30,8 @@ namespace BS
             new ChallengePairs(),
             new ChallengeLocationSequence(),
             new ChallengeAltruism(),
-            new ChallengeAltruismSacrifice()};
+            new ChallengeAltruismSacrifice(),
+            new ChallengePredatorPrey()};
     }
 
     void SurvivalCriteriaManager::startNewGeneration(unsigned challengeId)

@@ -29,6 +29,7 @@
 #include "ChallengeAltruism.h"
 #include "ChallengeAltruismSacrifice.h"
 #include "ChallengeCornerRandom.h"
+#include "ChallengePredatorPrey.h"
 
 namespace BS
 {

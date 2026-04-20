@@ -4,11 +4,18 @@
 #include <fstream>
 #include <vector>
 #include <algorithm>
+#include <cmath>
 #include <cassert>
 #include "simulator.h"
 #include "./survivalCriteria/SurvivalCriteria.h"
 
 namespace BS {
+
+static unsigned predatorCountFromParams()
+{
+    double frac = std::max(0.0, std::min(1.0, p.predatorFraction));
+    return static_cast<unsigned>(std::lround(frac * p.population));
+}
 
 // Requires that the grid, signals, and peeps containers have been allocated.
 // This will erase the grid and signal layers, then create a new population in
@@ -30,8 +37,10 @@ void initializeGeneration0()
 
     // Spawn the population. The peeps container has already been allocated,
     // just clear and reuse it
+    const unsigned predatorCount = predatorCountFromParams();
     for (uint16_t index = 1; index <= p.population; ++index) {
-        peeps[index].initialize(index, grid.findEmptyLocation(), makeRandomGenome());
+        const AgentType type = (index <= predatorCount) ? AgentType::PREDATOR : AgentType::PREY;
+        peeps[index].initialize(index, grid.findEmptyLocation(), makeRandomGenome(), type);
     }
 }
 
@@ -69,6 +78,7 @@ void initializeFromSave()
 void initializeNewGeneration(const std::vector<Genome> &parentGenomes, unsigned generation)
 {
     extern Genome generateChildGenome(const std::vector<Genome> &parentGenomes);
+    extern Genome makeRandomGenome();
 
     // The grid, signals, and peeps containers have already been allocated, just
     // clear them if needed and reuse the elements
@@ -81,8 +91,39 @@ void initializeNewGeneration(const std::vector<Genome> &parentGenomes, unsigned 
     }
 
     // Spawn the population. This overwrites all the elements of peeps[]
+    const unsigned predatorCount = predatorCountFromParams();
     for (uint16_t index = 1; index <= p.population; ++index) {
-        peeps[index].initialize(index, grid.findEmptyLocation(), generateChildGenome(parentGenomes));
+        const AgentType type = (index <= predatorCount) ? AgentType::PREDATOR : AgentType::PREY;
+        peeps[index].initialize(index, grid.findEmptyLocation(), generateChildGenome(parentGenomes), type);
+    }
+}
+
+// Predator-prey: initialize each type from its own parent pool.
+void initializeNewGenerationPredatorPrey(
+    const std::vector<Genome> &predatorParents,
+    const std::vector<Genome> &preyParents,
+    unsigned generation)
+{
+    extern Genome generateChildGenome(const std::vector<Genome> &parentGenomes);
+    extern Genome makeRandomGenome();
+
+    grid.zeroFill();
+    grid.createBarrier(p.barrierType);
+    signals.zeroFill();
+
+    if (p.population != peeps.getPopulation()) {
+        peeps.init(p.population);
+    }
+
+    const unsigned predatorCount = predatorCountFromParams();
+    for (uint16_t index = 1; index <= p.population; ++index)
+    {
+        const bool isPred = index <= predatorCount;
+        const AgentType type = isPred ? AgentType::PREDATOR : AgentType::PREY;
+
+        const std::vector<Genome> &pool = isPred ? predatorParents : preyParents;
+        Genome childGenome = pool.empty() ? makeRandomGenome() : generateChildGenome(pool);
+        peeps[index].initialize(index, grid.findEmptyLocation(), std::move(childGenome), type);
     }
 }
 
@@ -110,6 +151,10 @@ unsigned spawnNewGeneration(unsigned generation, unsigned murderCount, SurvivalC
 
     // This container will hold the genomes of the survivors
     std::vector<Genome> parentGenomes;
+    std::vector<Genome> predatorParentGenomes;
+    std::vector<Genome> preyParentGenomes;
+
+    const bool predatorPreyMode = (p.challenge == CHALLENGE_PREDATOR_PREY);
 
     if (p.challenge != CHALLENGE_ALTRUISM) {
         // First, make a list of all the individuals who will become parents; save
@@ -122,6 +167,13 @@ unsigned spawnNewGeneration(unsigned generation, unsigned murderCount, SurvivalC
             // the optimization would be noticeable.
             if (passed.first && !peeps[index].nnet.connections.empty()) {
                 parents.push_back( { index, passed.second } );
+                if (predatorPreyMode) {
+                    if (peeps[index].type == AgentType::PREDATOR) {
+                        predatorParentGenomes.push_back(peeps[index].genome);
+                    } else {
+                        preyParentGenomes.push_back(peeps[index].genome);
+                    }
+                }
             }
         }
     } else {
@@ -199,33 +251,54 @@ unsigned spawnNewGeneration(unsigned generation, unsigned murderCount, SurvivalC
         });
 
     // Assemble a list of all the parent genomes. These will be ordered by their
-    // scores if the parents[] container was sorted by score
-    parentGenomes.reserve(parents.size());
-    for (const std::pair<uint16_t, float> &parent : parents) {
-        parentGenomes.push_back(peeps[parent.first].genome);
+    // scores if the parents[] container was sorted by score.
+    //
+    // In predator-prey mode, we keep two separate pools (predators and prey).
+    if (!predatorPreyMode) {
+        parentGenomes.reserve(parents.size());
+        for (const std::pair<uint16_t, float> &parent : parents) {
+            parentGenomes.push_back(peeps[parent.first].genome);
+        }
+    } else {
+        predatorParentGenomes.clear();
+        preyParentGenomes.clear();
+        for (const std::pair<uint16_t, float> &parent : parents) {
+            if (peeps[parent.first].type == AgentType::PREDATOR) {
+                predatorParentGenomes.push_back(peeps[parent.first].genome);
+            } else {
+                preyParentGenomes.push_back(peeps[parent.first].genome);
+            }
+        }
     }
     
+    const unsigned survivorCount =
+        predatorPreyMode ? static_cast<unsigned>(predatorParentGenomes.size() + preyParentGenomes.size())
+                         : static_cast<unsigned>(parentGenomes.size());
+
     std::stringstream ss;
-    ss << "Gen " << generation << ", " << parentGenomes.size() << " survivors";
+    ss << "Gen " << generation << ", " << survivorCount << " survivors";
     if (murderCount > 0) {
         ss << ", " << murderCount << " kills";
     }
     userIO->log(ss.str());
-    appendEpochLog(generation, parentGenomes.size(), murderCount);
+    appendEpochLog(generation, survivorCount, murderCount);
     //displaySignalUse(); // for debugging only
 
     // Now we have a container of zero or more parents' genomes
 
-    if (!parentGenomes.empty()) {
-        // Spawn a new generation
-        initializeNewGeneration(parentGenomes, generation + 1);
-    } else {
-        // Special case: there are no surviving parents: start the simulation over
-        // from scratch with randomly-generated genomes
-        initializeGeneration0();
+    if (!predatorPreyMode) {
+        if (!parentGenomes.empty()) {
+            initializeNewGeneration(parentGenomes, generation + 1);
+        } else {
+            initializeGeneration0();
+        }
+        return parentGenomes.size();
     }
 
-    return parentGenomes.size();
+    // Predator-prey: always attempt to spawn each type from its own pool; if a pool is
+    // empty it falls back to random genomes for that type.
+    initializeNewGenerationPredatorPrey(predatorParentGenomes, preyParentGenomes, generation + 1);
+    return predatorParentGenomes.size() + preyParentGenomes.size();
 }
 
 } // end namespace BS

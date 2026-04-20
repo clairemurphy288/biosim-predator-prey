@@ -66,6 +66,11 @@ void ParamManager::setDefaults()
     privParams.RNGSeed = 12345678;
     privParams.graphLogUpdateCommand = "";//"/usr/bin/gnuplot --persist ./tools/graphlog.gp";
     privParams.parameterChangeGenerationNumber = 0;
+
+    // Predator-prey defaults (off unless you choose the predator-prey challenge)
+    privParams.predatorFraction = 0.2;
+    privParams.predatorMinCapturesToReproduce = 1;
+    privParams.predatorCaptureNorm = 5;
 }
 
 
@@ -284,6 +289,15 @@ void ParamManager::ingestParameter(std::string name, std::string val)
         }
         else if (name == "autosave" && isBool) {
             privParams.autoSave = bVal; break;
+        }
+        else if (name == "predatorfraction" && isFloat && dVal >= 0.0 && dVal <= 1.0) {
+            privParams.predatorFraction = dVal; break;
+        }
+        else if (name == "predatormincapturestoreproduce" && isUint) {
+            privParams.predatorMinCapturesToReproduce = uVal; break;
+        }
+        else if (name == "predatorcapturenorm" && isUint && uVal > 0) {
+            privParams.predatorCaptureNorm = uVal; break;
         }
         else {
             std::cout << "Invalid param: " << name << " = " << val << std::endl;

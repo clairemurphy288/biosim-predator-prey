@@ -21,12 +21,13 @@ extern Grid grid;
 // The responsiveness parameter will be initialized here to maximum value
 // of 1.0, then depending on which action activation function is used,
 // the default undriven value may be changed to 1.0 or action midrange.
-void Indiv::initialize(uint16_t index_, Coord loc_, Genome &&genome_)
+void Indiv::initialize(uint16_t index_, Coord loc_, Genome &&genome_, AgentType type_)
 {
     index = index_;
     loc = loc_;
     birthLoc = Coord(loc.x, loc.y);
     genome = std::move(genome_);
+    type = type_;
     this->initVariables();
 }
 
@@ -41,8 +42,10 @@ void Indiv::initVariables()
     responsiveness = 0.5; // range 0.0..1.0
     longProbeDist = p.longProbeDistance;
     challengeBits = (unsigned)false; // will be set true when some task gets accomplished    
+    captures = 0;
     createWiringFromGenome();
 
+    // Keep drawing stable with existing behavior; radius is later scaled by displayScale.
     this->shape.setRadius(2);
     this->fillColor();
 }
@@ -85,6 +88,14 @@ void Indiv::fillColor()
     }
 
 	this->shape.setFillColor(sf::Color(color[0], color[1], color[2], 255));
+
+    // Predator-prey: distinguish agent types visually without destroying genetic color.
+    if (this->type == AgentType::PREDATOR) {
+        this->shape.setOutlineColor(sf::Color(220, 60, 60));
+        this->shape.setOutlineThickness(1.f);
+    } else {
+        this->shape.setOutlineThickness(0.f);
+    }
 }
 
 // This prints a neural net in a form that can be processed with

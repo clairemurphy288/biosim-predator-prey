@@ -44,6 +44,9 @@ namespace BS
         tgui::EditBox::Ptr mutationRateEditBox;
         tgui::EditBox::Ptr populationEditBox;
         tgui::EditBox::Ptr stepsPerGenerationEditBox;
+        tgui::EditBox::Ptr predatorFractionEditBox;
+        tgui::EditBox::Ptr predatorMinCapturesEditBox;
+        tgui::EditBox::Ptr predatorCaptureNormEditBox;
 
         std::function<void(std::string name, std::string val)> changeSettingsCallback;
 

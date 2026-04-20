@@ -128,7 +128,7 @@ void executeActions(Indiv &indiv, std::array<float, Action::NUM_ACTIONS> &action
     // Kill forward -- if this action value is > threshold, value is converted to probability
     // of an attempted murder. Probabilities under the threshold are considered 0.0.
     // If this action neuron is enabled but not driven, the neighbors are safe.
-    if (isEnabled(Action::KILL_FORWARD) && p.killEnable) {
+    if (isEnabled(Action::KILL_FORWARD) && p.killEnable && indiv.type == AgentType::PREDATOR) {
         constexpr float killThreshold = 0.5;  // 0.0..1.0; 0.5 is midlevel
         float level = actionLevels[Action::KILL_FORWARD];
         level = (std::tanh(level) + 1.0) / 2.0; // convert to 0.0..1.0
@@ -138,7 +138,11 @@ void executeActions(Indiv &indiv, std::array<float, Action::NUM_ACTIONS> &action
             if (grid.isInBounds(otherLoc) && grid.isOccupiedAt(otherLoc)) {
                 Indiv &indiv2 = peeps.getIndiv(otherLoc);
                 assert((indiv.loc - indiv2.loc).length() == 1);
-                peeps.queueForDeath(indiv2);
+                // Predator-prey: only predators can kill, and only prey count as "captures".
+                if (indiv2.alive && indiv2.type == AgentType::PREY) {
+                    peeps.queueForDeath(indiv2);
+                    ++indiv.captures;
+                }
             }
         }
     }

@@ -63,6 +63,11 @@ struct Params {
     unsigned RNGSeed; // >= 0
     bool autoSave;
 
+    // Predator-prey (coevolution) settings
+    double predatorFraction; // 0.0..1.0
+    unsigned predatorMinCapturesToReproduce; // >= 0
+    unsigned predatorCaptureNorm; // > 0 (captures needed for score==1.0)
+
     // These must not change after initialization
     uint16_t sizeX; // 2..0x10000
     uint16_t sizeY; // 2..0x10000
