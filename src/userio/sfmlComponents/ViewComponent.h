@@ -16,7 +16,7 @@ namespace BS
         ViewComponent(sf::Vector2u windowSize);
         ~ViewComponent();
         sf::View* getView() { return this->view; }
-        void updateInput(sf::Event e, sf::RenderWindow* window);
+        void updateInput(const sf::Event &e, sf::RenderWindow* window);
 
         void lock();
         void unlock();

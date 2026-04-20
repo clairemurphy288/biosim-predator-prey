@@ -5,26 +5,45 @@ endif
 CXX = c++
 LD = c++
 
+UNAME_S := $(shell uname -s)
+
+# OpenMP:
+# - Linux builds commonly use GCC's libgomp via -fopenmp/-lgomp
+# - macOS AppleClang requires Homebrew libomp with different flags
+ifeq ($(UNAME_S),Darwin)
+  SDKROOT := $(shell xcrun --show-sdk-path)
+  SYSROOT_FLAGS := -isysroot $(SDKROOT) -isystem $(SDKROOT)/usr/include/c++/v1 -isystem $(SDKROOT)/usr/include
+  OMP_CXXFLAGS := -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include
+  OMP_LDFLAGS := -L/opt/homebrew/opt/libomp/lib
+  OMP_LDLIBS := -lomp
+else
+  SYSROOT_FLAGS :=
+  OMP_CXXFLAGS := -fopenmp
+  OMP_LDFLAGS := -fopenmp
+  OMP_LDLIBS := -lgomp
+endif
+
 CXXFLAGS += \
   -Wall \
   -pedantic \
   -std=c++17 \
   -fexceptions \
-  -fopenmp \
+  $(SYSROOT_FLAGS) \
+  $(OMP_CXXFLAGS) \
   -I./src/include \
+  $(shell pkg-config --cflags sfml-graphics) \
+  -I/opt/homebrew/opt/tgui/include \
   $(shell pkg-config --cflags opencv4)
 
 LDFLAGS += \
-  -lopencv_core \
-  -lopencv_video \
-  -lopencv_videoio \
-  -lgomp \
+  $(shell pkg-config --libs opencv4) \
+  $(SYSROOT_FLAGS) \
+  $(OMP_LDFLAGS) \
+  $(OMP_LDLIBS) \
   -lpthread \
-  -lsfml-graphics \
-  -lsfml-window \
-  -lsfml-system \
-  -ltgui \
-  -fopenmp
+  $(shell pkg-config --libs sfml-graphics) \
+  -L/opt/homebrew/opt/tgui/lib \
+  -ltgui
 
 ifeq ($(BUILD),debug)
   OUT_DIR = bin/Debug/
@@ -45,6 +64,7 @@ SOURCE :=  $(wildcard src/*.cpp src/*.h src/userio/*.cpp src/userio/*.h \
   src/userio/sfmlComponents/flowComponents/*.cpp src/userio/sfmlComponents/flowComponents/*.h \
   src/userio/sfmlComponents/settingsComponents/*.cpp src/userio/sfmlComponents/settingsComponents/*.h \
   )
+SOURCE := $(filter-out src/userio/imageWriter.cpp,$(SOURCE))
 CXXSOURCE :=  $(filter %.cpp, $(SOURCE))
 HEADERS :=  $(filter %.h, $(SOURCE))
 OBJS := $(subst src/,$(OBJ_DIR)/, $(CXXSOURCE:.cpp=.o))
@@ -97,11 +117,11 @@ $(OBJ_DIR)%.o : src%.cpp
 clean: clean_debug clean_release
 
 clean_debug:
-	$(RM) -f obj/Debug/src/*
+	$(RM) -rf obj/Debug/src/*
 	$(RM) -f bin/Debug/biosim4
 
 clean_release:
-	$(RM) -f obj/Release/src/*
+	$(RM) -rf obj/Release/src/*
 	$(RM) -f bin/Release/biosim4
 
 distclean: clean

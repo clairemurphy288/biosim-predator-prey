@@ -6,7 +6,9 @@ namespace BS
     {
         this->windowWidth = windowSize.x;
         this->windowHeight = windowSize.y;
-        this->view = new sf::View(sf::FloatRect(0, 0, this->windowWidth, this->windowHeight));
+        this->view = new sf::View(sf::FloatRect(
+            sf::Vector2f(0.f, 0.f),
+            sf::Vector2f(static_cast<float>(this->windowWidth), static_cast<float>(this->windowHeight))));
         this->view->move(sf::Vector2f(-20.f, -20.f));
     }
 
@@ -18,7 +20,7 @@ namespace BS
      * Handles user input for view:
      * view movement and zoom
      */
-    void ViewComponent::updateInput(sf::Event e, sf::RenderWindow* window)
+    void ViewComponent::updateInput(const sf::Event &e, sf::RenderWindow* window)
     {
         // if view is disabled externally, do nothing
         if (this->isLocked)
@@ -27,14 +29,14 @@ namespace BS
         }
         
         // View keyboard zoom
-        if (e.Event::type == e.Event::KeyReleased)
+        if (const auto *keyReleased = e.getIf<sf::Event::KeyReleased>())
         {
-            if (e.Event::key.code == sf::Keyboard::Key::Add)
+            if (keyReleased->code == sf::Keyboard::Key::Add)
             {
                 this->view->zoom(0.8f);
                 this->accumZoom *= 0.8f;
             }
-            else if (e.Event::key.code == sf::Keyboard::Key::Subtract)
+            else if (keyReleased->code == sf::Keyboard::Key::Subtract)
             {
                 this->view->zoom(1.25f);
                 this->accumZoom *= 1.25f;
@@ -42,10 +44,10 @@ namespace BS
         }
 
         // View mouse navigation trigger
-        if (e.Event::type == sf::Event::MouseButtonPressed)
+        if (const auto *mousePressed = e.getIf<sf::Event::MouseButtonPressed>())
         {
             // Mouse button is pressed, get the position and set moving as active
-            if (e.mouseButton.button == 0)
+            if (mousePressed->button == sf::Mouse::Button::Left)
             {
                 sf::Vector2i mousePosition = sf::Mouse::getPosition(*window);
                 if (mousePosition.x > 0 && mousePosition.x < this->windowWidth - (this->windowWidth / 10) * 2)
@@ -58,19 +60,19 @@ namespace BS
         }
 
         // View mouse navigation release
-        if (e.Event::type == sf::Event::MouseButtonReleased)
+        if (const auto *mouseReleased = e.getIf<sf::Event::MouseButtonReleased>())
         {
-            if (e.mouseButton.button == 0)
+            if (mouseReleased->button == sf::Mouse::Button::Left)
             {
                 this->viewIsMoving = false;
             }
         }
 
         // View drag mouse functionality
-        if (e.Event::type == sf::Event::MouseMoved && this->viewIsMoving)
+        if (const auto *mouseMoved = e.getIf<sf::Event::MouseMoved>(); mouseMoved && this->viewIsMoving)
         {
             // Determine the new position in world coordinates
-            const sf::Vector2f newPos = sf::Vector2f(e.mouseMove.x, e.mouseMove.y);
+            const sf::Vector2f newPos = sf::Vector2f(static_cast<float>(mouseMoved->position.x), static_cast<float>(mouseMoved->position.y));
             // Determine how the cursor has moved
             // Swap these to invert the movement direction
             sf::Vector2f deltaPos = this->oldViewPos - newPos;
@@ -89,7 +91,7 @@ namespace BS
 
         // Zoom like google maps:
         // zoom in or out, but keep the same mouse position relative to the world
-        if (e.Event::type == e.Event::MouseWheelMoved && !this->viewIsMoving)
+        if (const auto *wheelScrolled = e.getIf<sf::Event::MouseWheelScrolled>(); wheelScrolled && !this->viewIsMoving)
         {
             sf::Vector2i mousePosition = sf::Mouse::getPosition(*window);
             if (mousePosition.x > 0 && mousePosition.x < this->windowWidth - (this->windowWidth / 10) * 2)
@@ -97,7 +99,7 @@ namespace BS
                 float zoomOutFactor = 0.8f;
                 float zoomInFactor = 1.25f;
 
-                float zoom = e.mouseWheel.delta > 0 ? zoomOutFactor : zoomInFactor;
+                float zoom = wheelScrolled->delta > 0 ? zoomOutFactor : zoomInFactor;
                 float tmpZoom = this->accumZoom * zoom;
                 if (tmpZoom >= 0.0625f && tmpZoom <= 2.f)
                 {
@@ -129,19 +131,19 @@ namespace BS
 
         // view keyboard movement
         float const viewSpeed = 2.f;
-        if (e.Event::type == e.Event::KeyPressed && e.Event::key.code == sf::Keyboard::Left)
+        if (const auto *keyPressed = e.getIf<sf::Event::KeyPressed>(); keyPressed && keyPressed->code == sf::Keyboard::Key::Left)
         {
             this->view->move(sf::Vector2f(-viewSpeed, 0));
         }
-        else if (e.Event::type == e.Event::KeyPressed && e.Event::key.code == sf::Keyboard::Right)
+        else if (const auto *keyPressed = e.getIf<sf::Event::KeyPressed>(); keyPressed && keyPressed->code == sf::Keyboard::Key::Right)
         {
             this->view->move(sf::Vector2f(viewSpeed, 0));
         }
-        if (e.Event::type == e.Event::KeyPressed && e.Event::key.code == sf::Keyboard::Up)
+        if (const auto *keyPressed = e.getIf<sf::Event::KeyPressed>(); keyPressed && keyPressed->code == sf::Keyboard::Key::Up)
         {
             this->view->move(sf::Vector2f(0, -viewSpeed));
         }
-        else if (e.Event::type == e.Event::KeyPressed && e.Event::key.code == sf::Keyboard::Down)
+        else if (const auto *keyPressed = e.getIf<sf::Event::KeyPressed>(); keyPressed && keyPressed->code == sf::Keyboard::Key::Down)
         {
             this->view->move(sf::Vector2f(0, viewSpeed));
         }

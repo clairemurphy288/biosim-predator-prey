@@ -10,10 +10,15 @@ namespace BS
     {
         this->windowWidth = static_cast<int>(this->baseWindowWidth * p.uiScale);
         this->windowHeight = static_cast<int>(this->baseWindowHeight * p.uiScale);
-        this->window = new sf::RenderWindow(sf::VideoMode(this->windowWidth, this->windowHeight), "biosim4", sf::Style::Close | sf::Style::Titlebar);
+        this->window = new sf::RenderWindow(
+            sf::VideoMode(sf::Vector2u(static_cast<unsigned>(this->windowWidth), static_cast<unsigned>(this->windowHeight))),
+            "biosim4",
+            sf::Style::Close | sf::Style::Titlebar);
         this->window->setFramerateLimit(144);
         this->window->setVerticalSyncEnabled(false);
-        this->window->setPosition(sf::Vector2i(200, (sf::VideoMode::getDesktopMode().height - this->windowHeight) / 2));
+        this->window->setPosition(sf::Vector2i(
+            200,
+            (static_cast<int>(sf::VideoMode::getDesktopMode().size.y) - this->windowHeight) / 2));
 
         // setup gui
         this->gui.setWindow(*this->window);
@@ -272,20 +277,23 @@ namespace BS
      */
     void SFMLUserIO::updatePollEvents()
     {
-        sf::Event e;
-        while (this->window->pollEvent(e))
+        while (const std::optional<sf::Event> optEvent = this->window->pollEvent())
         {
-            if (e.Event::type == sf::Event::Closed)
+            const sf::Event &e = *optEvent;
+
+            if (e.is<sf::Event::Closed>())
             {
                 this->window->close();
             }
 
-            if (e.Event::type == e.Event::KeyPressed && e.Event::key.code == sf::Keyboard::Key::Escape)
+            if (const auto *keyPressed = e.getIf<sf::Event::KeyPressed>();
+                keyPressed && keyPressed->code == sf::Keyboard::Key::Escape)
             {
                 this->window->close();
             }
 
-            if (e.Event::type == e.Event::KeyPressed && e.Event::key.code == sf::Keyboard::Key::Space)
+            if (const auto *keyPressed = e.getIf<sf::Event::KeyPressed>();
+                keyPressed && keyPressed->code == sf::Keyboard::Key::Space)
             {
                 this->flowControlComponent->pauseResume(!this->paused);
             }
@@ -293,10 +301,10 @@ namespace BS
             // update view
             this->viewComponent->updateInput(e, this->window);
 
-            if (e.Event::type == sf::Event::MouseButtonReleased)
+            if (const auto *mouseReleased = e.getIf<sf::Event::MouseButtonReleased>())
             {
                 // select indiv on mouse position on RMB
-                if (e.mouseButton.button == 1 && !this->passedSelected)
+                if (mouseReleased->button == sf::Mouse::Button::Right && !this->passedSelected)
                 {
                     int liveDisplayScale = this->getLiveDisplayScale();
                     sf::Vector2f mousePosition = this->window->mapPixelToCoords(sf::Mouse::getPosition(*window));
@@ -350,7 +358,9 @@ namespace BS
         auto const &barrierLocs = grid.getBarrierLocations();
         for (Coord loc : barrierLocs) {
             sf::RectangleShape barrier = sf::RectangleShape(sf::Vector2f(1.f*liveDisplayScale, 1.f*liveDisplayScale));
-            barrier.setPosition((loc.x) * liveDisplayScale, ((p.sizeY - (loc.y + 1.f))) * liveDisplayScale);
+            barrier.setPosition(sf::Vector2f(
+                static_cast<float>(loc.x * liveDisplayScale),
+                static_cast<float>((p.sizeY - (loc.y + 1.f)) * liveDisplayScale)));
             barrier.setFillColor(sf::Color(136, 136, 136));
             barriesrs.push_back(barrier);
         }
@@ -403,9 +413,9 @@ namespace BS
                 Indiv &indiv = peeps[index];
                 if (indiv.alive)
                 {
-                    indiv.shape.setPosition(
+                    indiv.shape.setPosition(sf::Vector2f(
                         static_cast<float>(indiv.loc.x * liveDisplayScale),
-                        static_cast<float>(((p.sizeY - indiv.loc.y) - 1) * liveDisplayScale));
+                        static_cast<float>(((p.sizeY - indiv.loc.y) - 1) * liveDisplayScale)));
                     this->window->draw(indiv.shape);
                 }
             }
@@ -484,7 +494,7 @@ namespace BS
         this->window->setSize(sf::Vector2u(this->windowWidth, this->windowHeight));
         this->window->setPosition(sf::Vector2i(
             200,
-            (sf::VideoMode::getDesktopMode().height - this->windowHeight) / 2));
+            (static_cast<int>(sf::VideoMode::getDesktopMode().size.y) - this->windowHeight) / 2));
 
         this->rightPanelComponent->getPanel()->setSize("20%", this->windowHeight);
         this->viewComponent->resize(sf::Vector2u(this->windowWidth, this->windowHeight));
