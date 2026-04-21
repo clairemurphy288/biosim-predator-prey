@@ -7,9 +7,9 @@ namespace BS
     {
         this->console = tgui::TextArea::create();
         this->console->setReadOnly(true);
-        this->console->setTextSize(static_cast<unsigned>(13 * p.uiScale));
-        this->console->setSize("20%", "25%");
-        this->console->setPosition("80%", "75%");
+        this->console->setTextSize(static_cast<unsigned>(11 * p.uiScale));
+        this->console->setSize("100%", "100%");
+        this->console->setPosition("0%", "0%");
     }
 
     ConsoleComponent::~ConsoleComponent(){}

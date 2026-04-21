@@ -9,25 +9,19 @@
 namespace BS
 {
     /**
-     * Container to the right of the window.
-     * Directly includes settigs components, 
-     * and indirectly - everything else on the right (via addToPanel function)
+     * Populates the scrollable settings section of the right panel.
      */
     class RightPanelComponent
     {
     public:
         RightPanelComponent(
-            sf::Vector2u windowSize,
+            tgui::Container::Ptr container,
+            int panelWidth,
             std::function<void(std::string name, std::string val)> changeSettingsCallback,
             std::function<void()> infoCallback,
             std::function<void(float)> scaleChangedCallback
         );
         ~RightPanelComponent();
-
-        tgui::Panel::Ptr getPanel() { return this->panel; }
-
-        void addToPanel(const tgui::Widget::Ptr &widgetPtr, const tgui::String &widgetName = "");
-        void initSettingsComponents(std::function<void()> infoCallback, std::function<void(float)> scaleChangedCallback);
 
         void setFromParams();
 
@@ -37,7 +31,7 @@ namespace BS
         float widgetHeight;
         float widgetWidth;
 
-        tgui::Panel::Ptr panel;
+        tgui::Container::Ptr container;
 
         ChallengeBoxComponent *challengeBoxComponent;
         BarrierBoxComponent *barrierBoxComponent;
@@ -50,9 +44,9 @@ namespace BS
 
         std::function<void(std::string name, std::string val)> changeSettingsCallback;
 
-        tgui::EditBox::Ptr createEditBox(tgui::Widget::Ptr reference, tgui::String text, std::string name);
+        tgui::EditBox::Ptr createEditBox(tgui::Widget::Ptr reference, tgui::String text, std::string labelName, std::string settingsName);
         void createLabel(tgui::Widget::Ptr widget, const tgui::String &text);
-        void createConfirmButton(tgui::EditBox::Ptr editBox, std::string settingsName, std::string name);
+        void initSettingsComponents(std::function<void()> infoCallback, std::function<void(float)> scaleChangedCallback);
     };
 }
 

@@ -27,12 +27,7 @@ namespace BS
     extern ParamManager paramManager;
     extern SurvivalCriteriaManager survivalCriteriaManager;
     extern std::stringstream printGenomeLegend();
-    
-    /**
-     * This class displays of a simulation using the SFML library.
-     * Main display loop and event handling are done in this class.
-     * Includes window, view, all custom display components and child dialogs.
-     */
+
     class SFMLUserIO
     {
     public:
@@ -59,29 +54,36 @@ namespace BS
 
         bool restartOnEnd = false;
     private:
-        int baseWindowWidth = 1280;
-        int baseWindowHeight = 720;
+        // Section heights at uiScale=1.0 (scaled by p.uiScale at runtime)
+        static int const BASE_PANEL_WIDTH  = 280;
+        static int const FLOW_H_BASE       = 120;
+        static int const ACTION_H_BASE     = 95;
+        static int const CONSOLE_H_BASE    = 60;
+
+        int panelWidth;
         int windowWidth;
         int windowHeight;
         sf::RenderWindow* window;
 
         sf::View* view;
         ViewComponent* viewComponent;
-        
+
         tgui::Gui gui;
-        RightPanelComponent* rightPanelComponent;
-        FlowControlComponent* flowControlComponent;
+        tgui::Panel::Ptr mainRightPanel;
+
+        RightPanelComponent*    rightPanelComponent;
+        FlowControlComponent*   flowControlComponent;
         BottomButtonsComponent* bottomButtonsComponent;
-        InfoWindowComponent* infoWindowComponent;
+        InfoWindowComponent*    infoWindowComponent;
 
         bool paused = false;
         ConsoleComponent* console;
 
-        static int const SPEED_SLOW_MAX = -5;   // max speed factor
-        static int const SPEED_FAST_MAX = 5;    // min speed factor
-        int speedThreshold = 0;         // how many frames should be skipped (positive value) or drawn again (negative value)
-        int increaseSpeedCounter = 0;   // how many frames were skipped and not drawn
-        int slowSpeedCounter = 0;       // how many times were current frame drawn
+        static int const SPEED_SLOW_MAX = -5;
+        static int const SPEED_FAST_MAX = 5;
+        int speedThreshold = 0;
+        int increaseSpeedCounter = 0;
+        int slowSpeedCounter = 0;
         void speedChanged(float value);
 
         bool isChildWindowShowing = false;
@@ -98,7 +100,7 @@ namespace BS
 
         int getLiveDisplayScale();
         void applyUiScale(float scale);
-        uint16_t selectedIndex = 0; // selected individual index
+        uint16_t selectedIndex = 0;
 
         bool passedSelected = false;
     };

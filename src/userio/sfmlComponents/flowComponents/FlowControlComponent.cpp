@@ -3,110 +3,101 @@
 
 namespace BS
 {
-
     FlowControlComponent::FlowControlComponent(
-        int speedMin, 
-        int speedMax, 
-        int speedInitValue, 
-        std::function<void(float value)> changeSpeedCallback, 
+        tgui::Container::Ptr container_,
+        int speedMin,
+        int speedMax,
+        int speedInitValue,
+        std::function<void(float value)> changeSpeedCallback,
         std::function<void(bool)> pauseCallback_,
         std::function<void(bool, bool)> stopAtSmthCallback_
     )
     {
+        this->container = container_;
         this->pauseCallback = pauseCallback_;
         this->stopAtSmthCallback = stopAtSmthCallback_;
-        this->labelOffset = 15.f * p.uiScale;
 
-        this->group = tgui::Group::create();
-        this->group->setPosition("0%", "0%");
+        float s = p.uiScale;
 
-        // setup pause picture
+        // ── Row 1: play/pause icon + generation progress bar ──────────────
         this->pausePicture = tgui::Picture::create("Resources/Pictures/play.png");
-        this->pausePicture->onClick([this]()
-                                    { this->pauseResume(); });
-        this->pausePicture->setPosition(5.f * p.uiScale, 5.f * p.uiScale);
-        this->pausePicture->setSize(this->pausePicture->getSize().x * p.uiScale, this->pausePicture->getSize().y * p.uiScale);
-        this->group->add(this->pausePicture, "Picture");
+        this->pausePicture->onClick([this]() { this->pauseResume(); });
+        float picW = this->pausePicture->getSize().x * s;
+        float picH = this->pausePicture->getSize().y * s;
+        this->pausePicture->setSize(picW, picH);
+        this->pausePicture->setPosition(10.f * s, 10.f * s);
+        this->container->add(this->pausePicture, "PlayPause");
 
-        // create StopAtStartButton
-        this->stopAtStartButton = tgui::ToggleButton::create(">|");
-        this->stopAtStartButton->setPosition({bindRight(this->pausePicture) + 3.f * p.uiScale, bindTop(this->pausePicture) + 6.f * p.uiScale});
-        this->stopAtStartButton->setSize(20.f * p.uiScale, this->pausePicture->getSize().y - 6.f * p.uiScale);
-        this->stopAtStartButton->onToggle([this](bool isDown) {
-            if (isDown) {
-                this->stopAtSmthCallback(true, false);
-                this->stopAtEndButton->setDown(false);
-            }
-            else {
-                this->stopAtSmthCallback(false, this->stopAtEndButton->isDown());
-            } 
-        });
-        this->group->add(this->stopAtStartButton, "StopAtStartButton");
-
-        // setup generation progress bar
         this->generationProgressBar = tgui::ProgressBar::create();
         this->generationProgressBar->setMinimum(0);
-        this->generationProgressBar->setSize("60%", this->stopAtStartButton->getSize().y);
-        this->generationProgressBar->setPosition({bindRight(this->stopAtStartButton), bindTop(this->stopAtStartButton)});
-        this->group->add(this->generationProgressBar, "GenerationProgressBar");
+        float barH = picH * 0.55f;
+        this->generationProgressBar->setSize("75%", barH);
+        this->generationProgressBar->setPosition(
+            {bindRight(this->pausePicture) + 8.f * s,
+             bindTop(this->pausePicture) + (picH - barH) / 2.f});
+        this->container->add(this->generationProgressBar, "GenProgressBar");
 
-        this->stopAtEndButton = tgui::ToggleButton::create(">|");
-        this->stopAtEndButton->setPosition({bindRight(this->generationProgressBar) + 3.f * p.uiScale, bindTop(this->generationProgressBar)});
-        this->stopAtEndButton->setSize(20.f * p.uiScale, this->stopAtStartButton->getSize().y);
-        this->stopAtEndButton->onToggle([this](bool isDown) {
-            if (isDown) {
-                this->stopAtSmthCallback(false, true);
-                this->stopAtStartButton->setDown(false);
+        // ── Row 2: speed slider ────────────────────────────────────────────
+        tgui::Slider::Ptr speedSlider = tgui::Slider::create();
+        speedSlider->setMinimum(speedMin);
+        speedSlider->setMaximum(speedMax);
+        speedSlider->setStep(1);
+        speedSlider->setValue(speedInitValue);
+        speedSlider->setPosition({10.f * s, "52%"});
+        speedSlider->setSize("90%", 14.f * s);
+        speedSlider->onValueChange([changeSpeedCallback](float v) { changeSpeedCallback(v); });
+        this->container->add(speedSlider, "SpeedSlider");
+
+        tgui::Label::Ptr speedLabel = tgui::Label::create("Speed");
+        speedLabel->setPosition({bindLeft(speedSlider), bindTop(speedSlider) - 14.f * s});
+        this->container->add(speedLabel, "SpeedLabel");
+
+        // ── Row 3 & 4: pause-at checkboxes ────────────────────────────────
+        float checkH = 14.f * s;
+        this->stopAtStartButton = tgui::CheckBox::create("Pause at gen start");
+        this->stopAtStartButton->setSize(checkH, checkH);
+        this->stopAtStartButton->setPosition({bindLeft(speedSlider), bindBottom(speedSlider) + 10.f * s});
+        this->stopAtStartButton->onChange([this](bool checked) {
+            if (checked) {
+                this->stopAtSmthCallback(true, false);
+                this->stopAtEndButton->setChecked(false);
+            } else {
+                this->stopAtSmthCallback(false, this->stopAtEndButton->isChecked());
             }
-            else {
-                this->stopAtSmthCallback(this->stopAtEndButton->isDown(), false);
-            } 
         });
-        this->group->add(this->stopAtEndButton, "StopAtEndButton");
+        this->container->add(this->stopAtStartButton, "PauseAtStart");
 
-        SpeedControlsComponent *speedControlsComponent = new SpeedControlsComponent(this->pausePicture, this->group, 20.f * p.uiScale);
-        speedControlsComponent->init(speedMin, speedMax, speedInitValue, changeSpeedCallback);
-        tgui::Widget::Ptr referenceWidget = speedControlsComponent->getLabelReferenceWidget();
-        this->createLabel(referenceWidget, "Speed");
+        this->stopAtEndButton = tgui::CheckBox::create("Pause at gen end");
+        this->stopAtEndButton->setSize(checkH, checkH);
+        this->stopAtEndButton->setPosition({bindLeft(this->stopAtStartButton), bindBottom(this->stopAtStartButton) + 5.f * s});
+        this->stopAtEndButton->onChange([this](bool checked) {
+            if (checked) {
+                this->stopAtSmthCallback(false, true);
+                this->stopAtStartButton->setChecked(false);
+            } else {
+                this->stopAtSmthCallback(this->stopAtStartButton->isChecked(), false);
+            }
+        });
+        this->container->add(this->stopAtEndButton, "PauseAtEnd");
     }
-
-    tgui::Group::Ptr FlowControlComponent::getGroup() 
-    { 
-        return this->group; 
-    }    
 
     FlowControlComponent::~FlowControlComponent() {}
 
-    /**
-     * Pause switch
-     */
     void FlowControlComponent::pauseResume()
     {
         this->pauseResume(!this->paused);
     }
 
-    /**
-     * Pause switch
-     * There are two types of pause: caused by user directly (paused class variable)
-     * and indirectly (externalPause class variable).
-     * externalPause is triggered by the application itself (e.g. showing child window).
-     * This is because the simulation shouldn't unpause if the user triggered it, even if child window is closed
-     */
     void FlowControlComponent::pauseResume(bool paused)
     {
         this->paused = paused;
-
         if (this->paused || this->externalPause)
             this->pausePicture->getRenderer()->setTexture("Resources/Pictures/pause.png");
         else
             this->pausePicture->getRenderer()->setTexture("Resources/Pictures/play.png");
-
         this->pauseCallback(this->paused || this->externalPause);
     }
 
-    /**
-     * Trigger externalPause
-     */
     void FlowControlComponent::pauseExternal(bool paused)
     {
         this->externalPause = paused;
@@ -123,16 +114,9 @@ namespace BS
         this->generationProgressBar->setValue(simStep);
     }
 
-    void FlowControlComponent::createLabel(tgui::Widget::Ptr widget, const tgui::String &text)
-    {
-        tgui::Label::Ptr label = tgui::Label::create(text);
-        label->setPosition({bindLeft(widget), bindTop(widget) - this->labelOffset});
-        this->group->add(label);
-    }
-
     void FlowControlComponent::flushStopAtSmthButtons()
     {
-        this->stopAtStartButton->setDown(false);
-        this->stopAtEndButton->setDown(false);
-    }    
+        this->stopAtStartButton->setChecked(false);
+        this->stopAtEndButton->setChecked(false);
+    }
 }

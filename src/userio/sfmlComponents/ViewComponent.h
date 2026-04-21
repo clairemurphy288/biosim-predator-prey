@@ -3,13 +3,9 @@
 
 #include <SFML/Graphics.hpp>
 #include <SFML/System.hpp>
-#include <iostream>
 
 namespace BS
 {
-    /*
-    * Class for handling view of simulation - point of view, zoom in or out
-    */
     class ViewComponent
     {
     public:
@@ -17,19 +13,13 @@ namespace BS
         ~ViewComponent();
         sf::View* getView() { return this->view; }
         void updateInput(const sf::Event &e, sf::RenderWindow* window);
-
         void lock();
         void unlock();
         void resize(sf::Vector2u newSize);
     private:
         sf::View* view;
-
-        int windowHeight;
         int windowWidth;
-        bool viewIsMoving = false;
-        sf::Vector2f oldViewPos;
-        double accumZoom = 1;
-
+        int windowHeight;
         bool isLocked = false;
     };
 }

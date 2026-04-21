@@ -3,109 +3,94 @@
 
 namespace BS
 {
-    /**
-     * Constructor
-     * @param saveCallback save simulation callback
-     * @param loadCallback load simulation callback
-     * @param restartCallback restart simulation callback
-     * @param saveIndivCallback save individual's neural network to file callback
-     * @param changeSettingsCallback callback for changing settings
-     * @param indivInfoCallback callback for showing informational child window
-     * @param selectPassedCallback callback for selecting individuals tha passed the survival criteria
-     */
-    BottomButtonsComponent::BottomButtonsComponent(std::function<void(void)> saveCallback,
+    BottomButtonsComponent::BottomButtonsComponent(
+        tgui::Container::Ptr container_,
+        std::function<void(void)> saveCallback,
         std::function<void(void)> loadCallback,
         std::function<void(bool)> restartCallback,
         std::function<void()> saveIndivCallback,
         std::function<void(std::string name, std::string val)> changeSettingsCallback,
         std::function<void()> indivInfoCallback,
-        std::function<void(bool)> selectPassedCallback)
+        std::function<void(bool)> selectPassedCallback_)
     {
-        this->selectPassedCallback = selectPassedCallback;
+        this->container = container_;
+        this->selectPassedCallback = selectPassedCallback_;
 
-        this->group = tgui::Group::create();
+        float s  = p.uiScale;
+        float mx = 10.f * s;          // horizontal margin
+        float my = 8.f  * s;          // top margin
+        float bh = 24.f * s;          // button height
+        float ch = 14.f * s;          // checkbox height
+        float vg = 7.f  * s;          // vertical gap between rows
 
-        // setup divider
-        tgui::SeparatorLine::Ptr line = tgui::SeparatorLine::create();
-        line->setPosition("0%", "75%");
-        line->setSize("100%", 1);
-        line->getRenderer()->setColor(tgui::Color::Black);
-        this->group->add(line);
+        // ── Row 1: Autosave checkbox ──────────────────────────────────────
+        tgui::CheckBox::Ptr autosaveBox = tgui::CheckBox::create("Autosave");
+        autosaveBox->setSize(ch, ch);
+        autosaveBox->setPosition({mx, my});
+        autosaveBox->setChecked(p.autoSave);
+        autosaveBox->onChange([changeSettingsCallback](bool checked) {
+            changeSettingsCallback("autosave", checked ? "1" : "0");
+        });
+        this->container->add(autosaveBox, "AutosaveBox");
 
-        // setup buttons
-        float btnHorizontalMargin = 5.f * p.uiScale;
-        float height = 27.f * p.uiScale;
-        float btnWidth = 72.f * p.uiScale;
-        float btnWidthSmall = 57.f * p.uiScale;
+        // ── Row 2: Save / Load / Restart ──────────────────────────────────
+        float row2Y = my + ch + vg;
+        // Button widths use TGUI percentage strings applied per widget
+        tgui::Button::Ptr saveBtn = tgui::Button::create("Save sim");
+        saveBtn->setPosition({mx, row2Y});
+        saveBtn->setSize("28%", bh);
+        saveBtn->onPress([saveCallback]() { saveCallback(); });
+        this->container->add(saveBtn, "SaveBtn");
 
-        tgui::Button::Ptr saveButton = tgui::Button::create("Save sim");
-        saveButton->setPosition({bindLeft(line) + 10.f * p.uiScale, bindTop(line) - height - 10.f * p.uiScale});
-        saveButton->onPress([saveCallback]() { saveCallback(); });
-        saveButton->setSize(btnWidth, height);
-        this->group->add(saveButton, "SaveButton");
-
-        tgui::Button::Ptr loadButton = tgui::Button::create("Load sim");
-        loadButton->setPosition({bindRight(saveButton) + btnHorizontalMargin, bindTop(saveButton)});
-        loadButton->onPress([loadCallback]() { loadCallback(); });
-        loadButton->setSize(btnWidth, height);
-        this->group->add(loadButton, "LoadButton");
+        tgui::Button::Ptr loadBtn = tgui::Button::create("Load sim");
+        loadBtn->setPosition({bindRight(saveBtn) + 4.f * s, row2Y});
+        loadBtn->setSize("28%", bh);
+        loadBtn->onPress([loadCallback]() { loadCallback(); });
+        this->container->add(loadBtn, "LoadBtn");
 
         this->restartButton = tgui::ToggleButton::create("Restart");
-        this->restartButton->setPosition({bindRight(loadButton) + btnHorizontalMargin, bindTop(loadButton)});
+        this->restartButton->setPosition({bindRight(loadBtn) + 4.f * s, row2Y});
+        this->restartButton->setSize("22%", bh);
         this->restartButton->onToggle([restartCallback](bool isDown) {
             restartCallback(isDown);
         });
-        this->restartButton->setSize(btnWidthSmall, height);
-        this->group->add(this->restartButton, "RestartButton");
+        this->container->add(this->restartButton, "RestartBtn");
 
-        tgui::CheckBox::Ptr autosaveCheckBox = tgui::CheckBox::create("Autosave");
-        float checkboxSize = 16.f * p.uiScale;
-        autosaveCheckBox->setSize(checkboxSize, checkboxSize);
-        autosaveCheckBox->setPosition({bindLeft(saveButton), bindTop(loadButton) - checkboxSize * 2.0f});
-        autosaveCheckBox->setText("Autosave");
-        autosaveCheckBox->setChecked(p.autoSave);
-        autosaveCheckBox->onChange([changeSettingsCallback](bool checked){
-            changeSettingsCallback("autosave", checked ? "1" : "0");
-        });
-        this->group->add(autosaveCheckBox, "AutosaveCheckBox");
+        // ── Row 3: Save indiv / Info / Show passed ────────────────────────
+        float row3Y = row2Y + bh + vg;
 
         tgui::Button::Ptr saveIndivBtn = tgui::Button::create("Save indiv");
-        saveIndivBtn->setSize(btnWidth, height);
-        saveIndivBtn->setPosition({bindRight(this->restartButton) - saveIndivBtn->getSize().x, bindTop(this->restartButton) - saveIndivBtn->getSize().y - 10.f * p.uiScale});
+        saveIndivBtn->setPosition({mx, row3Y});
+        saveIndivBtn->setSize("28%", bh);
         saveIndivBtn->onPress([saveIndivCallback]() { saveIndivCallback(); });
-        this->group->add(saveIndivBtn, "SaveIndivBtn");
+        this->container->add(saveIndivBtn, "SaveIndivBtn");
 
         tgui::Button::Ptr indivInfoBtn = tgui::Button::create("i");
-        indivInfoBtn->setSize(height, height);
-        indivInfoBtn->setPosition({bindLeft(saveIndivBtn) - indivInfoBtn->getSize().x - btnHorizontalMargin, bindTop(saveIndivBtn)});
+        indivInfoBtn->setPosition({bindRight(saveIndivBtn) + 4.f * s, row3Y});
+        indivInfoBtn->setSize(bh, bh);
         indivInfoBtn->onPress([indivInfoCallback]() { indivInfoCallback(); });
-        this->group->add(indivInfoBtn, "IndivInfoBtn");
+        this->container->add(indivInfoBtn, "IndivInfoBtn");
 
         this->selectPassedBtn = tgui::Button::create("Passed");
-        this->selectPassedBtn->setSize(btnWidthSmall, height);
-        this->selectPassedBtn->setPosition({bindLeft(saveIndivBtn), bindTop(saveIndivBtn) - this->selectPassedBtn->getSize().y - 10.f * p.uiScale});
+        this->selectPassedBtn->setPosition({bindRight(indivInfoBtn) + 4.f * s, row3Y});
+        this->selectPassedBtn->setSize("22%", bh);
         this->selectPassedBtn->onPress([this]() {
             this->isSelectPassed = !this->isSelectPassed;
             this->selectPassedBtn->setText(this->isSelectPassed ? "Clear" : "Passed");
             this->selectPassedCallback(this->isSelectPassed);
         });
-        this->group->add(selectPassedBtn, "SelectPassedBtn");
-    }    
-    
+        this->container->add(this->selectPassedBtn, "SelectPassedBtn");
+    }
+
     void BottomButtonsComponent::switchPassedSelection(bool selected)
     {
         this->isSelectPassed = selected;
         this->selectPassedBtn->setText(this->isSelectPassed ? "Clear" : "Passed");
-        this->selectPassedCallback(this->isSelectPassed); 
+        this->selectPassedCallback(this->isSelectPassed);
     }
 
     void BottomButtonsComponent::flushRestartButton()
     {
         this->restartButton->setDown(false);
     }
-
-    tgui::Group::Ptr BottomButtonsComponent::getGroup() 
-    { 
-        return this->group; 
-    } 
 }

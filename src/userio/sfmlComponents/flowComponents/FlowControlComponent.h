@@ -4,27 +4,26 @@
 #include <functional>
 #include <TGUI/TGUI.hpp>
 #include <TGUI/Backend/SFML-Graphics.hpp>
-#include "SpeedControlsComponent.h"
 
 namespace BS
 {
     /**
-     * Class for displaying elements for simulation flow: pause, resume, change speed, generation progress bar.
+     * Adds simulation flow controls (play/pause, speed, progress, pause-at options)
+     * directly into the given container panel.
      */
     class FlowControlComponent
     {
     public:
         FlowControlComponent(
-            int speedMin, 
-            int speedMax, 
-            int speedInitValue, 
-            std::function<void(float value)> changeSpeedCallback, 
+            tgui::Container::Ptr container,
+            int speedMin,
+            int speedMax,
+            int speedInitValue,
+            std::function<void(float value)> changeSpeedCallback,
             std::function<void(bool)> pauseCallback,
             std::function<void(bool, bool)> stopAtSmthCallback
         );
         ~FlowControlComponent();
-
-        tgui::Group::Ptr getGroup();
 
         void startNewGeneration(unsigned generation, unsigned stepsPerGeneration);
         void endOfStep(unsigned simStep);
@@ -35,9 +34,7 @@ namespace BS
         void flushStopAtSmthButtons();
 
     private:
-        float labelOffset;
-
-        tgui::Group::Ptr group;
+        tgui::Container::Ptr container;
 
         tgui::Picture::Ptr pausePicture;
         std::function<void(bool)> pauseCallback;
@@ -47,10 +44,8 @@ namespace BS
         tgui::ProgressBar::Ptr generationProgressBar;
 
         std::function<void(bool, bool)> stopAtSmthCallback;
-        tgui::ToggleButton::Ptr stopAtStartButton;
-        tgui::ToggleButton::Ptr stopAtEndButton;
-
-        void createLabel(tgui::Widget::Ptr widget, const tgui::String &text);
+        tgui::CheckBox::Ptr stopAtStartButton;
+        tgui::CheckBox::Ptr stopAtEndButton;
     };
 }
 
