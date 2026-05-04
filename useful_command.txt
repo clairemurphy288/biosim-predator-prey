@@ -1,0 +1,34 @@
+Starting the simulation 
+
+make release     
+
+./bin/Release/biosim4 biosim4.ini
+
+
+Post-run pipeline (convert NNs + analyse + optional cleanup)
+
+# Convert .txt → .svg AND run analysis, keep all files
+./tools/postrun.sh
+
+# Convert .txt → .svg AND run analysis, THEN delete .txt + .svg
+./tools/postrun.sh --clean
+
+# Delete everything in Output/ for a completely fresh run
+./tools/postrun.sh --wipe
+
+
+Manual commands (if needed individually)
+
+# Convert Agent Neural Networks .txt to .svg
+for f in Output/Images/*.txt; do 
+  .venv/bin/python3 tools/graph-nnet.py -i "$f" -o "${f%.txt}.svg"
+done
+
+# Analysis pipeline only
+.venv/bin/python3 tools/analyse.py \
+    --log Output/Logs/epoch-log.txt \
+    --nets Output/Images \
+    --out  Output/analysis.png \
+    --smooth 5
+
+

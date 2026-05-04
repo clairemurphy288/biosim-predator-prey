@@ -142,7 +142,8 @@ unsigned spawnNewGeneration(unsigned generation, unsigned murderCount, SurvivalC
 {    
     unsigned sacrificedCount = 0; // for the altruism challenge
 
-    extern void appendEpochLog(unsigned generation, unsigned numberSurvivors, unsigned murderCount);
+    extern void appendEpochLog(unsigned generation, unsigned numberSurvivors, unsigned murderCount,
+                               unsigned predSurvivors, unsigned preySurvivors);
     extern void displaySignalUse();
 
     // This container will hold the indexes and survival scores (0.0..1.0)
@@ -281,7 +282,9 @@ unsigned spawnNewGeneration(unsigned generation, unsigned murderCount, SurvivalC
         ss << ", " << murderCount << " kills";
     }
     userIO->log(ss.str());
-    appendEpochLog(generation, survivorCount, murderCount);
+    appendEpochLog(generation, survivorCount, murderCount,
+                   static_cast<unsigned>(predatorParentGenomes.size()),
+                   static_cast<unsigned>(preyParentGenomes.size()));
     //displaySignalUse(); // for debugging only
 
     // Now we have a container of zero or more parents' genomes

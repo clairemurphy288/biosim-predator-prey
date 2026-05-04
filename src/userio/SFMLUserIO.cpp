@@ -369,7 +369,70 @@ namespace BS
         return p.displayScale / p.uiScale;
     }
 
-    void SFMLUserIO::endOfGeneration(unsigned generation) {}
+    void SFMLUserIO::endOfGeneration(unsigned generation)
+    {
+        if (p.autoSaveNetEpochs == 0 || generation >= p.autoSaveNetEpochs) {
+            return;
+        }
+        if (generation % p.autoSaveNetStride != 0) {
+            return;
+        }
+
+        const unsigned wantPred = p.autoSavePredatorNetsPerGeneration;
+        const unsigned wantPrey = p.autoSavePreyNetsPerGeneration;
+        if (wantPred == 0 && wantPrey == 0) {
+            return;
+        }
+
+        std::vector<uint16_t> predatorIndexes;
+        std::vector<uint16_t> preyIndexes;
+        predatorIndexes.reserve(p.population);
+        preyIndexes.reserve(p.population);
+
+        for (uint16_t index = 1; index <= p.population; ++index) {
+            const Indiv &indiv = peeps[index];
+            if (!indiv.alive || indiv.nnet.connections.empty()) {
+                continue;
+            }
+            if (indiv.type == AgentType::PREDATOR) {
+                predatorIndexes.push_back(index);
+            } else {
+                preyIndexes.push_back(index);
+            }
+        }
+
+        unsigned savedPred = 0;
+        unsigned savedPrey = 0;
+
+        const unsigned predToSave = std::min(wantPred, static_cast<unsigned>(predatorIndexes.size()));
+        for (unsigned i = 0; i < predToSave; ++i) {
+            const uint16_t index = predatorIndexes[i];
+            const std::string filename =
+                "Output/Images/gen-" + std::to_string(generation) + "-pred-id-" + std::to_string(index) + ".svg";
+            if (!Save::saveNetAsFile(index, filename).empty()) {
+                ++savedPred;
+            } else {
+                this->log("Auto-save predator net failed: " + Save::lastNetSaveError());
+            }
+        }
+
+        const unsigned preyToSave = std::min(wantPrey, static_cast<unsigned>(preyIndexes.size()));
+        for (unsigned i = 0; i < preyToSave; ++i) {
+            const uint16_t index = preyIndexes[i];
+            const std::string filename =
+                "Output/Images/gen-" + std::to_string(generation) + "-prey-id-" + std::to_string(index) + ".svg";
+            if (!Save::saveNetAsFile(index, filename).empty()) {
+                ++savedPrey;
+            } else {
+                this->log("Auto-save prey net failed: " + Save::lastNetSaveError());
+            }
+        }
+
+        this->log(
+            "Auto-saved nets for gen " + std::to_string(generation) +
+            ": predators " + std::to_string(savedPred) + "/" + std::to_string(wantPred) +
+            ", prey " + std::to_string(savedPrey) + "/" + std::to_string(wantPrey));
+    }
 
     void SFMLUserIO::log(std::string message)
     {

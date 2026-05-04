@@ -6,8 +6,10 @@
 #include <cassert>
 #include <cstring>
 #include <string>
+#include <algorithm>
 #include "../simulator.h"
 #include "../ai/sensors-actions.h"
+#include "../ai/indiv.h"
 #include "../peeps.h"
 #include "../params.h"
 #include "../ai/signals.h"
@@ -258,20 +260,69 @@ float averageGenomeLength()
 // The epoch log contains one line per generation in a format that can be
 // fed to graphlog.gp to produce a chart of the simulation progress.
 // ToDo: remove hardcoded filename.
-void appendEpochLog(unsigned generation, unsigned numberSurvivors, unsigned murderCount)
+void appendEpochLog(unsigned generation, unsigned numberSurvivors, unsigned murderCount,
+                    unsigned predSurvivors, unsigned preySurvivors)
 {
+    // Compute mean fitness over ALL individuals so we see the whole-generation
+    // performance, not just the survivors (survivors are passed in separately).
+    // Predator fitness  = mean(captures) / predatorCaptureNorm   (0..1)
+    // Prey fitness      = mean(age)      / stepsPerGeneration     (0..1)
+    double predFitnessSum = 0.0;
+    double preyFitnessSum = 0.0;
+    unsigned predTotal = 0;
+    unsigned preyTotal = 0;
+
+    for (unsigned index = 1; index <= p.population; ++index) {
+        const Indiv &indiv = peeps[index];
+        if (indiv.type == AgentType::PREDATOR) {
+            predFitnessSum += std::min(1.0f,
+                indiv.captures / static_cast<float>(p.predatorCaptureNorm));
+            ++predTotal;
+        } else {
+            preyFitnessSum += std::min(1.0f,
+                indiv.age / static_cast<float>(p.stepsPerGeneration));
+            ++preyTotal;
+        }
+    }
+
+    const double predFitness = (predTotal > 0) ? predFitnessSum / predTotal : 0.0;
+    const double preyFitness = (preyTotal > 0) ? preyFitnessSum / preyTotal : 0.0;
+
+    // Column widths (right-aligned numbers, left-aligned header labels).
+    // gen:6  survivors:10  diversity:10  genome_len:11  murders:8
+    // pred_surv:14  prey_surv:14  pred_fit:13  prey_fit:12
     std::ofstream foutput;
 
     if (generation == 0) {
         foutput.open(p.logDir + "/epoch-log.txt");
+        foutput << std::left
+                << std::setw(6)  << "#gen"
+                << std::setw(10) << "survivors"
+                << std::setw(10) << "diversity"
+                << std::setw(11) << "genome_len"
+                << std::setw(8)  << "murders"
+                << std::setw(14) << "pred_surv"
+                << std::setw(14) << "prey_surv"
+                << std::setw(13) << "pred_fit"
+                << std::setw(12) << "prey_fit"
+                << "\n";
         foutput.close();
     }
 
     foutput.open(p.logDir + "/epoch-log.txt", std::ios::app);
 
     if (foutput.is_open()) {
-        foutput << generation << " " << numberSurvivors << " " << geneticDiversity()
-                << " " << averageGenomeLength() << " " << murderCount << std::endl;
+        foutput << std::right
+                << std::setw(6)  << generation
+                << std::setw(10) << numberSurvivors
+                << std::setw(10) << std::fixed << std::setprecision(4) << geneticDiversity()
+                << std::setw(11) << std::fixed << std::setprecision(1) << averageGenomeLength()
+                << std::setw(8)  << murderCount
+                << std::setw(14) << predSurvivors
+                << std::setw(14) << preySurvivors
+                << std::setw(13) << std::fixed << std::setprecision(4) << predFitness
+                << std::setw(12) << std::fixed << std::setprecision(4) << preyFitness
+                << "\n";
     } else {
         assert(false);
     }

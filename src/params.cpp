@@ -24,7 +24,7 @@ void ParamManager::setDefaults()
 {
     privParams.sizeX = 128;
     privParams.sizeY = 128;
-    privParams.challenge = 6;
+    privParams.challenge = 20;
 
     privParams.genomeInitialLengthMin = 24;
     privParams.genomeInitialLengthMax = 24;
@@ -66,6 +66,10 @@ void ParamManager::setDefaults()
     privParams.RNGSeed = 12345678;
     privParams.graphLogUpdateCommand = "";//"/usr/bin/gnuplot --persist ./tools/graphlog.gp";
     privParams.parameterChangeGenerationNumber = 0;
+    privParams.autoSavePredatorNetsPerGeneration = 0;
+    privParams.autoSavePreyNetsPerGeneration = 0;
+    privParams.autoSaveNetEpochs = 0;
+    privParams.autoSaveNetStride = 10;
 
     // Predator-prey defaults (off unless you choose the predator-prey challenge)
     privParams.predatorFraction = 0.2;
@@ -290,6 +294,18 @@ void ParamManager::ingestParameter(std::string name, std::string val)
         }
         else if (name == "autosave" && isBool) {
             privParams.autoSave = bVal; break;
+        }
+        else if (name == "autosavepredatornetspergeneration" && isUint) {
+            privParams.autoSavePredatorNetsPerGeneration = uVal; break;
+        }
+        else if (name == "autosavepreynetspergeneration" && isUint) {
+            privParams.autoSavePreyNetsPerGeneration = uVal; break;
+        }
+        else if (name == "autosavenetepochs" && isUint) {
+            privParams.autoSaveNetEpochs = uVal; break;
+        }
+        else if (name == "autosavenetstride" && isUint && uVal > 0) {
+            privParams.autoSaveNetStride = uVal; break;
         }
         else if (name == "predatorfraction" && isFloat && dVal >= 0.0 && dVal <= 1.0) {
             privParams.predatorFraction = dVal; break;

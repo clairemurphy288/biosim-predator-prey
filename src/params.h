@@ -62,6 +62,10 @@ struct Params {
     bool deterministic;
     unsigned RNGSeed; // >= 0
     bool autoSave;
+    unsigned autoSavePredatorNetsPerGeneration; // >= 0
+    unsigned autoSavePreyNetsPerGeneration; // >= 0
+    unsigned autoSaveNetEpochs; // >= 0, 0 disables
+    unsigned autoSaveNetStride; // >= 1, save every N generations
 
     // Predator-prey (coevolution) settings
     double predatorFraction; // 0.0..1.0
