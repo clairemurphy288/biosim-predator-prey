@@ -134,23 +134,35 @@ prey_sensor_rate = usage_series(prey_usage, gen)
 has_sensor_data  = not np.all(np.isnan(pred_sensor_rate))
 
 # ── 3. Plot ───────────────────────────────────────────────────────────────────
+W = args.smooth
+MARKER_KW  = dict(marker='o', ms=3, markevery=1)   # small dot on every point
+PRED_COLOR = '#cf222e'
+PREY_COLOR = '#2ea04b'
+
 nrows = 2 + (1 if has_fitness else 0) + (1 if has_sensor_data else 0)
-fig, axes = plt.subplots(nrows, 1, figsize=(12, 4 * nrows), sharex=True)
+fig, axes = plt.subplots(nrows, 1, figsize=(13, 4.2 * nrows), sharex=True)
 fig.suptitle('biosim4 Predator–Prey Run Analysis', fontsize=14, fontweight='bold', y=1.01)
 ax_iter = iter(axes if nrows > 1 else [axes])
 
-W = args.smooth
+def set_gen_xticks(ax):
+    """Integer ticks every 1 generation up to 20, then every 5."""
+    step = 1 if len(gen) <= 20 else 5
+    ax.xaxis.set_major_locator(mticker.MultipleLocator(step))
+    ax.xaxis.set_minor_locator(mticker.MultipleLocator(1))
 
 # ── subplot: Fitness ──────────────────────────────────────────────────────────
 if has_fitness:
     ax = next(ax_iter)
     pf = np.array([v if v is not None else np.nan for v in pred_fitness])
     yf = np.array([v if v is not None else np.nan for v in prey_fitness])
-    ax.plot(gen, smooth(pf, W), color='#cf222e', lw=1.5, label='Predator fitness (mean captures/norm)')
-    ax.plot(gen, smooth(yf, W), color='#2ea04b', lw=1.5, label='Prey fitness (mean age/stepsPerGen)')
+    ax.plot(gen, smooth(pf, W), color=PRED_COLOR, lw=1.8,
+            label='Predator fitness (mean captures/norm)', **MARKER_KW)
+    ax.plot(gen, smooth(yf, W), color=PREY_COLOR, lw=1.8,
+            label='Prey fitness (mean age/stepsPerGen)', **MARKER_KW)
     ax.set_ylim(0, 1)
     ax.yaxis.set_major_formatter(mticker.PercentFormatter(xmax=1.0))
     ax.legend(fontsize=9)
+    set_gen_xticks(ax)
     fmt_ax(ax, 'Fitness (normalised)', 'Predator & Prey Fitness Over Generations')
 
 # ── subplot: Survivor counts ──────────────────────────────────────────────────
@@ -158,33 +170,53 @@ ax = next(ax_iter)
 if has_fitness and any(v is not None for v in pred_survivors):
     ps = np.array([v if v is not None else np.nan for v in pred_survivors])
     ys = np.array([v if v is not None else np.nan for v in prey_survivors])
-    ax.plot(gen, smooth(ps, W), color='#cf222e', lw=1.5, label='Predator survivors')
-    ax.plot(gen, smooth(ys, W), color='#2ea04b', lw=1.5, label='Prey survivors')
+    ax.plot(gen, smooth(ps, W), color=PRED_COLOR, lw=1.8,
+            label='Predator survivors', **MARKER_KW)
+    ax.plot(gen, smooth(ys, W), color=PREY_COLOR, lw=1.8,
+            label='Prey survivors', **MARKER_KW)
 else:
-    ax.plot(gen, smooth(survivors, W), color='steelblue', lw=1.5, label='Total survivors')
-ax.plot(gen, smooth(murders, W), color='#888888', lw=1.0, ls='--', label='Kills per gen')
+    ax.plot(gen, smooth(survivors, W), color='steelblue', lw=1.8,
+            label='Total survivors', **MARKER_KW)
+ax.plot(gen, smooth(np.array(murders, dtype=float), W), color='#888888',
+        lw=1.2, ls='--', label='Kills per gen')
 ax.legend(fontsize=9)
+set_gen_xticks(ax)
 fmt_ax(ax, 'Count', 'Survivor & Kill Counts')
 
 # ── subplot: Sensor usage ─────────────────────────────────────────────────────
 if has_sensor_data:
     ax = next(ax_iter)
-    ax.plot(gen, pred_sensor_rate * 100, color='#cf222e', lw=1.5,
-            marker='o', ms=3, label=f'Predators with "{PRED_SENSOR}" (prey-dist) sensor')
-    ax.plot(gen, prey_sensor_rate * 100, color='#2ea04b', lw=1.5,
-            marker='s', ms=3, label=f'Prey with "{PREY_SENSOR}" (pred-dist) sensor')
-    ax.set_ylim(0, 105)
+    # Only plot generations where we actually have .txt data (drop NaN gaps).
+    pred_mask = np.isfinite(pred_sensor_rate)
+    prey_mask = np.isfinite(prey_sensor_rate)
+    sampled_gens = sorted(set(gen[pred_mask]) | set(gen[prey_mask]))
+    note = f'(sampled every {sampled_gens[1]-sampled_gens[0]} gens)' \
+           if len(sampled_gens) >= 2 else '(sparse samples)'
+    if pred_mask.any():
+        ax.plot(gen[pred_mask], pred_sensor_rate[pred_mask] * 100,
+                color=PRED_COLOR, lw=1.8, marker='o', ms=6,
+                label=f'Predators using "{PRED_SENSOR}" sensor {note}')
+    if prey_mask.any():
+        ax.plot(gen[prey_mask], prey_sensor_rate[prey_mask] * 100,
+                color=PREY_COLOR, lw=1.8, marker='s', ms=6,
+                label=f'Prey using "{PREY_SENSOR}" sensor {note}')
+    ax.set_ylim(-5, 105)
     ax.yaxis.set_major_formatter(mticker.PercentFormatter())
+    ax.set_xticks(sampled_gens)
     ax.legend(fontsize=9)
-    fmt_ax(ax, 'Usage rate (%)', f'Opponent-Sensor Usage Rate ({PRED_SENSOR} / {PREY_SENSOR})')
+    fmt_ax(ax, 'Usage rate (%)',
+           f'Opponent-Sensor Usage Rate  ({PRED_SENSOR}=prey-dist  /  {PREY_SENSOR}=pred-dist)')
 
 # ── subplot: Genetic diversity ────────────────────────────────────────────────
 ax = next(ax_iter)
-ax.plot(gen, smooth(diversity, W), color='#5b9bd5', lw=1.5, label='Genetic diversity')
-ax.fill_between(gen, smooth(diversity, W), alpha=0.15, color='#5b9bd5')
+div = np.array(diversity, dtype=float)
+ax.plot(gen, smooth(div, W), color='#5b9bd5', lw=1.8,
+        label='Genetic diversity', **MARKER_KW)
+ax.fill_between(gen, smooth(div, W), alpha=0.12, color='#5b9bd5')
 ax.set_ylim(0, 1)
 ax.legend(fontsize=9)
 ax.set_xlabel('Generation', fontsize=10)
+set_gen_xticks(ax)
 fmt_ax(ax, 'Diversity (0–1)', 'Genetic Diversity Over Generations')
 
 # ── Save ──────────────────────────────────────────────────────────────────────
