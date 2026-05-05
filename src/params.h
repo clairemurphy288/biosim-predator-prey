@@ -67,11 +67,50 @@ struct Params {
     unsigned autoSaveNetEpochs; // >= 0, 0 disables
     unsigned autoSaveNetStride; // >= 1, save every N generations
 
-    // Predator-prey (coevolution) settings
-    double predatorFraction; // 0.0..1.0
+    // Predator-prey (coevolution) settings.
+    // predatorPreyEnabled is now decoupled from `challenge`: enable it to
+    // overlay the predator-prey dynamic on top of ANY arena/challenge.
+    // When enabled:
+    //   - The population is split into predators / prey by predatorFraction
+    //   - Predators reproduce based on captures (the challenge is ignored
+    //     for them; they live in whatever arena is active)
+    //   - Prey reproduce based on the active challenge's survival criterion
+    //     (so e.g. challenge=Circle becomes "prey must reach the circle and
+    //     evade predators")
+    bool predatorPreyEnabled;
+    double predatorFraction; // 0.0..1.0  (initial / fixed-mode fraction)
     unsigned predatorMinCapturesToReproduce; // >= 0
     unsigned predatorCaptureNorm; // > 0 (captures needed for score==1.0)
     float predatorPreyPerceptionRadius; // > 0 (radius for predator/prey sensors)
+    // Movement speed knobs.  Each agent only evaluates its neural net and
+    // executes actions every N simSteps (1 = full speed, 2 = half speed,
+    // 3 = third speed, ...).  Age, starvation, and other passive timers
+    // still tick every step, so a slower predator simply has fewer chances
+    // to act per generation.
+    unsigned predatorActionPeriod;       // >= 1
+    unsigned preyActionPeriod;           // >= 1
+
+    // Predator-prey dynamics extensions (added for Lotka-Volterra style oscillations).
+    // - predatorRatioMode = 0  : fixed.  Each generation always spawns
+    //   round(predatorFraction * population) predators.  This is the original
+    //   biosim4 behaviour and damps out any population oscillation.
+    // - predatorRatioMode = 1  : proportional.  The next generation's predator
+    //   fraction is driven by the relative fitness of the two species in the
+    //   just-finished generation:
+    //       frac = (predScore^gain) / (predScore^gain + preyScore^gain)
+    //   clamped to [predatorRatioFloor, predatorRatioCeil] to prevent collapse.
+    unsigned predatorRatioMode;          // 0 = fixed, 1 = proportional
+    double   predatorRatioFloor;         // 0.0..1.0 (must be < ceil)
+    double   predatorRatioCeil;          // 0.0..1.0 (must be > floor)
+    double   predatorRatioGain;          // >=1 sharpens response, <1 dampens
+    // Predator within-generation death.  If a predator goes more than
+    // predatorStarvationSteps simSteps without a capture (after a grace period
+    // at gen start), it is queued for death.  Set to 0 to disable starvation.
+    unsigned predatorStarvationSteps;    // 0 disables
+    unsigned predatorStarvationGrace;    // simSteps at start of gen with no starvation
+    // Prey selection pressure: only the top X by age get to reproduce.  At 1.0
+    // every surviving prey reproduces (original behaviour).
+    double   preyTopFractionToReproduce; // 0.0..1.0
 
     // These must not change after initialization
     uint16_t sizeX; // 2..0x10000

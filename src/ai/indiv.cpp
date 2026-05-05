@@ -43,6 +43,8 @@ void Indiv::initVariables()
     longProbeDist = p.longProbeDistance;
     challengeBits = (unsigned)false; // will be set true when some task gets accomplished    
     captures = 0;
+    lastKillStep = 0;
+    diedOfStarvation = false;
     createWiringFromGenome();
 
     // Keep drawing stable with existing behavior; radius is later scaled by displayScale.

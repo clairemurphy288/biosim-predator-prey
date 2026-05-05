@@ -17,6 +17,50 @@ static unsigned predatorCountFromParams()
     return static_cast<unsigned>(std::lround(frac * p.population));
 }
 
+// Compute the number of predators in the next generation.  In fixed mode this
+// is just round(predatorFraction * population).  In proportional mode it is
+// driven by the relative whole-generation fitness of the two species in the
+// just-finished generation, so that under-performing species shrink and over-
+// performing species grow.  The result is clamped to
+// [floor, ceil] * population to avoid one-step extinction.
+static unsigned nextGenPredatorCount()
+{
+    if (p.predatorRatioMode == 0) {
+        return predatorCountFromParams();
+    }
+
+    // Sum normalised fitness per species over the whole population (alive and
+    // dead) so that a generation in which most prey were killed shows up as a
+    // very low preyScore - which in turn lowers the predator count next gen.
+    double predScore = 0.0;
+    double preyScore = 0.0;
+
+    for (unsigned index = 1; index <= p.population; ++index) {
+        const Indiv &ind = peeps[index];
+        if (ind.type == AgentType::PREDATOR) {
+            predScore += std::min(1.0,
+                ind.captures / static_cast<double>(p.predatorCaptureNorm));
+        } else {
+            // Prey fitness = how long it survived.  Dead prey contribute their
+            // partial age, so a generation where prey die early has lower preyScore.
+            preyScore += std::min(1.0,
+                ind.age / static_cast<double>(p.stepsPerGeneration));
+        }
+    }
+
+    constexpr double EPS = 1e-6;
+    const double gain = std::max(1e-3, p.predatorRatioGain);
+    const double weightedPred = std::pow(std::max(EPS, predScore), gain);
+    const double weightedPrey = std::pow(std::max(EPS, preyScore), gain);
+
+    double frac = weightedPred / (weightedPred + weightedPrey);
+    const double floor = std::min(p.predatorRatioFloor, p.predatorRatioCeil);
+    const double ceil  = std::max(p.predatorRatioFloor, p.predatorRatioCeil);
+    frac = std::clamp(frac, floor, ceil);
+
+    return static_cast<unsigned>(std::lround(frac * p.population));
+}
+
 // Requires that the grid, signals, and peeps containers have been allocated.
 // This will erase the grid and signal layers, then create a new population in
 // the peeps container at random locations with random genomes.
@@ -36,8 +80,9 @@ void initializeGeneration0()
     }
 
     // Spawn the population. The peeps container has already been allocated,
-    // just clear and reuse it
-    const unsigned predatorCount = predatorCountFromParams();
+    // just clear and reuse it.  When predator-prey is disabled, every agent
+    // is a plain PREY (the original biosim4 behaviour).
+    const unsigned predatorCount = p.predatorPreyEnabled ? predatorCountFromParams() : 0;
     for (uint16_t index = 1; index <= p.population; ++index) {
         const AgentType type = (index <= predatorCount) ? AgentType::PREDATOR : AgentType::PREY;
         peeps[index].initialize(index, grid.findEmptyLocation(), makeRandomGenome(), type);
@@ -90,19 +135,24 @@ void initializeNewGeneration(const std::vector<Genome> &parentGenomes, unsigned 
         peeps.init(p.population);
     }
 
-    // Spawn the population. This overwrites all the elements of peeps[]
-    const unsigned predatorCount = predatorCountFromParams();
+    // Spawn the population.  This overwrites all the elements of peeps[].
+    // When predator-prey is disabled, every agent is a plain PREY (this is
+    // the path used for non-predator-prey runs of any challenge).
+    const unsigned predatorCount = p.predatorPreyEnabled ? predatorCountFromParams() : 0;
     for (uint16_t index = 1; index <= p.population; ++index) {
         const AgentType type = (index <= predatorCount) ? AgentType::PREDATOR : AgentType::PREY;
         peeps[index].initialize(index, grid.findEmptyLocation(), generateChildGenome(parentGenomes), type);
     }
 }
 
-// Predator-prey: initialize each type from its own parent pool.
+// Predator-prey: initialize each type from its own parent pool with an explicit
+// predator count for the next generation (allows the proportional-ratio mode
+// to drive boom/bust dynamics across generations).
 void initializeNewGenerationPredatorPrey(
     const std::vector<Genome> &predatorParents,
     const std::vector<Genome> &preyParents,
-    unsigned generation)
+    unsigned generation,
+    unsigned nextPredatorCount)
 {
     extern Genome generateChildGenome(const std::vector<Genome> &parentGenomes);
     extern Genome makeRandomGenome();
@@ -115,10 +165,14 @@ void initializeNewGenerationPredatorPrey(
         peeps.init(p.population);
     }
 
-    const unsigned predatorCount = predatorCountFromParams();
+    // Safety: never wipe out either species completely; pull the count back
+    // inside (1, population-1) so both species always have at least one member.
+    if (nextPredatorCount < 1) nextPredatorCount = 1;
+    if (nextPredatorCount > p.population - 1) nextPredatorCount = p.population - 1;
+
     for (uint16_t index = 1; index <= p.population; ++index)
     {
-        const bool isPred = index <= predatorCount;
+        const bool isPred = index <= nextPredatorCount;
         const AgentType type = isPred ? AgentType::PREDATOR : AgentType::PREY;
 
         const std::vector<Genome> &pool = isPred ? predatorParents : preyParents;
@@ -143,7 +197,8 @@ unsigned spawnNewGeneration(unsigned generation, unsigned murderCount, SurvivalC
     unsigned sacrificedCount = 0; // for the altruism challenge
 
     extern void appendEpochLog(unsigned generation, unsigned numberSurvivors, unsigned murderCount,
-                               unsigned predSurvivors, unsigned preySurvivors);
+                               unsigned predSurvivors, unsigned preySurvivors,
+                               double nextPredatorFraction);
     extern void displaySignalUse();
 
     // This container will hold the indexes and survival scores (0.0..1.0)
@@ -155,24 +210,42 @@ unsigned spawnNewGeneration(unsigned generation, unsigned murderCount, SurvivalC
     std::vector<Genome> predatorParentGenomes;
     std::vector<Genome> preyParentGenomes;
 
-    const bool predatorPreyMode = (p.challenge == CHALLENGE_PREDATOR_PREY);
+    // Predator-prey is now ORTHOGONAL to the challenge.  When enabled, it
+    // overlays the dual-species dynamic on top of whatever arena rule the
+    // challenge defines: predators reproduce based on captures (the arena
+    // rule is ignored for them), prey reproduce only if they ALSO pass the
+    // arena's geometric criterion.
+    const bool predatorPreyMode = p.predatorPreyEnabled;
 
     if (p.challenge != CHALLENGE_ALTRUISM) {
         // First, make a list of all the individuals who will become parents; save
         // their scores for later sorting. Indexes start at 1.
         for (uint16_t index = 1; index <= p.population; ++index) {
-            std::pair<bool, float> passed = survivalCriteriaManager.passedSurvivalCriterion(peeps[index], p, grid);
-            // Save the parent genome if it results in valid neural connections
-            // ToDo: if the parents no longer need their genome record, we could
-            // possibly do a move here instead of copy, although it's doubtful that
-            // the optimization would be noticeable.
-            if (passed.first && !peeps[index].nnet.connections.empty()) {
+            const Indiv &indiv = peeps[index];
+            std::pair<bool, float> passed;
+
+            if (predatorPreyMode && indiv.type == AgentType::PREDATOR) {
+                // Predator reproduction = captures-based, regardless of arena.
+                if (!indiv.alive) {
+                    passed = {false, 0.f};
+                } else {
+                    const bool ok = indiv.captures >= p.predatorMinCapturesToReproduce;
+                    const float score = std::min(1.f,
+                        indiv.captures / static_cast<float>(p.predatorCaptureNorm));
+                    passed = {ok, score};
+                }
+            } else {
+                // Prey (or non-predator-prey runs): use the active challenge.
+                passed = survivalCriteriaManager.passedSurvivalCriterion(indiv, p, grid);
+            }
+
+            if (passed.first && !indiv.nnet.connections.empty()) {
                 parents.push_back( { index, passed.second } );
                 if (predatorPreyMode) {
-                    if (peeps[index].type == AgentType::PREDATOR) {
-                        predatorParentGenomes.push_back(peeps[index].genome);
+                    if (indiv.type == AgentType::PREDATOR) {
+                        predatorParentGenomes.push_back(indiv.genome);
                     } else {
-                        preyParentGenomes.push_back(peeps[index].genome);
+                        preyParentGenomes.push_back(indiv.genome);
                     }
                 }
             }
@@ -261,6 +334,9 @@ unsigned spawnNewGeneration(unsigned generation, unsigned murderCount, SurvivalC
             parentGenomes.push_back(peeps[parent.first].genome);
         }
     } else {
+        // The unified `parents` list is sorted by score (descending), so re-
+        // partitioning preserves the per-species ordering: predatorParentGenomes
+        // ends up sorted by captures, preyParentGenomes by age-survived.
         predatorParentGenomes.clear();
         preyParentGenomes.clear();
         for (const std::pair<uint16_t, float> &parent : parents) {
@@ -270,11 +346,33 @@ unsigned spawnNewGeneration(unsigned generation, unsigned murderCount, SurvivalC
                 preyParentGenomes.push_back(peeps[parent.first].genome);
             }
         }
+
+        // Prey top-fraction selection: only the highest-scoring fraction
+        // reproduces.  At 1.0 every alive prey reproduces (original biosim4
+        // behaviour); lower values impose a real fitness gradient on prey.
+        if (p.preyTopFractionToReproduce < 1.0 && !preyParentGenomes.empty()) {
+            const double frac = std::max(0.0, std::min(1.0, p.preyTopFractionToReproduce));
+            size_t keep = static_cast<size_t>(std::lround(frac * preyParentGenomes.size()));
+            keep = std::max<size_t>(1, keep); // never empty if any survived
+            if (keep < preyParentGenomes.size()) {
+                preyParentGenomes.resize(keep);
+            }
+        }
     }
     
     const unsigned survivorCount =
         predatorPreyMode ? static_cast<unsigned>(predatorParentGenomes.size() + preyParentGenomes.size())
                          : static_cast<unsigned>(parentGenomes.size());
+
+    // Decide population sizes for the next generation.  In fixed mode this
+    // simply mirrors the .ini predatorFraction.  In proportional mode it is
+    // driven by this generation's relative fitness (see nextGenPredatorCount).
+    const unsigned nextPredCount = predatorPreyMode
+        ? nextGenPredatorCount()
+        : 0u;
+    const double nextPredFraction = predatorPreyMode && p.population > 0
+        ? nextPredCount / static_cast<double>(p.population)
+        : 0.0;
 
     std::stringstream ss;
     ss << "Gen " << generation << ", " << survivorCount << " survivors";
@@ -284,7 +382,8 @@ unsigned spawnNewGeneration(unsigned generation, unsigned murderCount, SurvivalC
     userIO->log(ss.str());
     appendEpochLog(generation, survivorCount, murderCount,
                    static_cast<unsigned>(predatorParentGenomes.size()),
-                   static_cast<unsigned>(preyParentGenomes.size()));
+                   static_cast<unsigned>(preyParentGenomes.size()),
+                   nextPredFraction);
     //displaySignalUse(); // for debugging only
 
     // Now we have a container of zero or more parents' genomes
@@ -298,9 +397,11 @@ unsigned spawnNewGeneration(unsigned generation, unsigned murderCount, SurvivalC
         return parentGenomes.size();
     }
 
-    // Predator-prey: always attempt to spawn each type from its own pool; if a pool is
-    // empty it falls back to random genomes for that type.
-    initializeNewGenerationPredatorPrey(predatorParentGenomes, preyParentGenomes, generation + 1);
+    // Predator-prey: always attempt to spawn each type from its own pool; if a
+    // pool is empty it falls back to random genomes for that type.  The
+    // nextPredCount (computed above) drives boom/bust between generations.
+    initializeNewGenerationPredatorPrey(predatorParentGenomes, preyParentGenomes,
+                                        generation + 1, nextPredCount);
     return predatorParentGenomes.size() + preyParentGenomes.size();
 }
 

@@ -14,7 +14,9 @@
 #include <cassert>
 #include <utility>
 #include <algorithm>
+#include <string>
 #include "simulator.h"     // the simulator data structures
+#include "./survivalCriteria/SurvivalCriteria.h"
 
 namespace BS {
 
@@ -67,8 +69,43 @@ The other important variables are:
 void simStepOneIndiv(Indiv &indiv, unsigned simStep)
 {
     ++indiv.age; // for this implementation, tracks simStep
-    auto actionLevels = indiv.feedForward(simStep);
-    executeActions(indiv, actionLevels);
+
+    // Speed knob: only act every Nth step.  Predator and prey can have
+    // different periods, giving us a clean "speed" axis for the experiment
+    // matrix (1 = full speed, 2 = half speed, 3 = third speed, ...).
+    const unsigned period = (indiv.type == AgentType::PREDATOR)
+                            ? std::max(1u, p.predatorActionPeriod)
+                            : std::max(1u, p.preyActionPeriod);
+    const bool actsThisStep = (period <= 1) || (simStep % period == 0);
+
+    unsigned prevCaptures = indiv.captures;
+    if (actsThisStep) {
+        auto actionLevels = indiv.feedForward(simStep);
+        executeActions(indiv, actionLevels);
+    }
+
+    // ---------------------------------------------------------------------
+    // Predator within-generation starvation.
+    // A predator that goes too long without a capture (after a grace period)
+    // is queued for death.  This is what makes predator population shrink
+    // when prey become scarce, which is the necessary feedback term for
+    // Lotka-Volterra style oscillations.
+    // ---------------------------------------------------------------------
+    if (p.predatorPreyEnabled
+        && indiv.alive
+        && indiv.type == AgentType::PREDATOR
+        && p.predatorStarvationSteps > 0)
+    {
+        if (indiv.captures > prevCaptures) {
+            indiv.lastKillStep = simStep;
+        }
+        if (simStep >= p.predatorStarvationGrace
+            && (simStep - indiv.lastKillStep) > p.predatorStarvationSteps)
+        {
+            peeps.queueForDeath(indiv);
+            indiv.diedOfStarvation = true;
+        }
+    }
 }
 
 /**
@@ -197,18 +234,37 @@ void simulator(int argc, char **argv)
 {
     //printSensorsActions(); // show the agents' capabilities
 
+    // CLI options:
+    //   ./bin/Release/biosim4 [config.ini] [--headless]
+    //   --headless (aliases: --no-visual, --no-ui) runs without SFML/TGUI.
+    bool headless = false;
+    const char *configFilename = "biosim4.ini";
+    for (int i = 1; i < argc; ++i) {
+        const std::string arg(argv[i]);
+        if (arg == "--headless" || arg == "--no-visual" || arg == "--no-ui") {
+            headless = true;
+            continue;
+        }
+        // First non-flag argument is treated as the config path.
+        if (!arg.empty() && arg[0] != '-') {
+            configFilename = argv[i];
+            continue;
+        }
+        std::cout << "Warning: ignoring unknown option '" << arg << "'" << std::endl;
+    }
+
     // Simulator parameters are available read-only through the global
     // variable p after paramManager is initialized.
     // Todo: remove the hardcoded parameter filename.
     paramManager.setDefaults();
-    paramManager.registerConfigFile(argc > 1 ? argv[1] : "biosim4.ini");
+    paramManager.registerConfigFile(configFilename);
     paramManager.updateFromConfigFile(0);
     paramManager.checkParameters(); // check and report any problems
 
     randomUint.initialize(); // seed the RNG for main-thread use
 
     // UI must be initialized after parameters
-    userIO = new UserIO(true, false);
+    userIO = new UserIO(!headless, false);
     
     runMode = RunMode::RUN;
     unsigned generation = 0;

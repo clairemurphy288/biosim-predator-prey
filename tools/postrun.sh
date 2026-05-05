@@ -58,7 +58,9 @@ if [[ -f "$LOG_FILE" ]]; then
         --log  "$LOG_FILE" \
         --nets "$IMAGES_DIR" \
         --out  "$ANALYSIS_OUT" \
-        --smooth "$SMOOTH"
+        --report "Output/analysis_report.md" \
+        --smooth "$SMOOTH" \
+        --split-figures
 else
     echo "No epoch log found at $LOG_FILE — skipping analysis."
 fi

@@ -355,6 +355,11 @@ Test everything is working by executing the Debug or Release executable in the b
 ./bin/Release/biosim4 biosim4.ini
 ```
 
+Run without opening the visual UI window (headless mode):
+```
+./bin/Release/biosim4 biosim4.ini --headless
+```
+
 You should have output something like:
 `Gen 1, 2290 survivors`
 
