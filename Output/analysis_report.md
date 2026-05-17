@@ -1,16 +1,16 @@
 # biosim4 predator-prey analysis
 
 - log: `Output/Logs/epoch-log.txt`
-- generations analysed: 29  (burn-in = 0)
+- generations analysed: 31  (burn-in = 0)
 - smoothing window: 5
 
 ## Predictions
 
 | #    | Prediction | Verdict | Detail |
 |------|------------|---------|--------|
-| OSC1 | Detrended prey autocorrelation has a negative peak at a positive lag (= half the period) | **PASS** | min lag = 8, r = -0.34, FFT period ≈ 6 gens |
-| OSC2 | Cross-correlation peak at positive lag (prey leads predator), permutation-significant | **PASS** | lag = +3, r = +0.46, perm-p = 0.029 |
-| RED-QUEEN | Both fitness slopes positive (joint improvement) | _fail_ | pred slope = +6.12e-03/gen (p=0.000); prey slope = -3.48e-03/gen (p=0.044) |
+| OSC1 | Detrended prey autocorrelation has a negative peak at a positive lag (= half the period) | _fail_ | min lag = 16, r = -0.11, FFT period ≈ 10 gens |
+| OSC2 | Cross-correlation peak at positive lag (prey leads predator), permutation-significant | _fail_ | lag = +0, r = -0.84, perm-p = 0.000 |
+| RED-QUEEN | Both fitness slopes positive (joint improvement) | _fail_ | pred slope = +1.93e-03/gen (p=0.003); prey slope = -7.77e-03/gen (p=0.002) |
 
 ## Notes
 

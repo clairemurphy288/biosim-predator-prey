@@ -1,0 +1,121 @@
+Thank you for your feedback from our last meeting. We’ve revised our problem statement now, and hopefully it’s stronger than it was before. I want to share our new experimental pipeline. 
+
+New problem statement:
+
+Can predator-prey population dynamics emerge in a neuroevolutionary agent-based simulation without hard-coded ecological strategy, and under what parameter conditions are these dynamics most reliably produced?
+
+
+We’ve looked into the literature into what exactly predator prey dynamics are and we’ve found these consistent behaviors: 
+Predator and prey populations oscillate 
+Prey population peaks consistently precede predator peaks
+Red Queen theory: both species increase in fitness across generations
+
+Statistical Framework & Success Criteria
+
+Test 1: Do populations oscillate?
+
+Predator-prey systems (Lotka-Volterra) predict cyclic rise and fall in population counts.
+This test analyzes preySurvivors per generation.
+Remove long-term trend from preySurvivors 
+Compute autocorrelation across generation shifts (lags)
+Look for a negative dip at a non-trivial lag
+Pass criterion: Cyclic signal at lag ≥ 3 generations with autocorrelation r < −0.15
+
+Test 2: Does prey lead predator?
+
+Changes in prey population should precede predator response by a consistent delay. Detrended preySurvivors and predatorSurvivors
+Compute cross-correlation between prey and predator series over multiple lags
+Identify the lag where the association is strongest
+Run permutation test with 2,000 circular shifts to build a null distribution
+Pass criterion: prey-leads-predator offset with permutation p < 0.05.
+
+
+
+
+
+
+
+
+Test 3: Are both species improving over time?
+
+Red Queen coevolution predicts both species keep adapting in a persistent arms race. 
+The test uses meanFitnessPrey and meanFitnessPredator per generation. Linear regression of fitness vs. generation index for each species.
+
+Pass criterion: positive fitness trend for both predator and prey (p < 0.10).
+
+
+Below we performed an experiment with our baseline configurations over 45 generations, during the simulation we observed some local predator, prey behavior like predators forming groups and prey fleeing from attacks. We also performed our statistical analysis, and saw that with the baseline configurations there was an oscillation in population for prey survival. However it failed two other statistical tests for prey population leading the prey, and there was no improvement over time of the fitness functions. 
+
+In the future we will perform more experiments with this pipeline. We’ll experiment with: 
+1. environment                               
+2. Population balance (predator/prey ratio)       
+3. speed           
+4. starvation    
+
+We will also use 100 generations per experiment. We will also have three different seeds per experiment in order to ensure reproducibility and 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Example of graphics for statistical analysis (45 Generations)
+
+
+
+
+
+
+
+Statistical Result Table 
+
+
+
+Test
+Prediction
+Verdict
+Detail
+OSC1
+Detrended prey autocorrelation has a negative peak at a positive lag (= half the period)
+PASS
+min lag = 18, r = -0.33, FFT period ≈ 16 gens
+OSC2
+Cross-correlation peak at positive lag (prey leads predator), permutation-significant
+fail
+lag = +0, r = -0.79, perm-p = 0.000
+RED-QUEEN
+Both fitness slopes positive (joint improvement)
+fail
+pred slope = +1.50e-03/gen (p=0.000); prey slope = -6.24e-03/gen (p=0.000)
+
+
+Qualitative Measurements (examples)
+Simulation behavior 
+Analyzing neural network structures
+
+ 
+
+
+
+
+
+
+
+
