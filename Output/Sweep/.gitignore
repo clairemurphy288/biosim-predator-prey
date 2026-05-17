@@ -1,0 +1,3 @@
+# Ignore all sweep run output — these are large and regenerable.
+*
+!.gitignore

@@ -49,6 +49,7 @@ struct Params {
     bool saveVideo;
     unsigned videoStride; // > 0
     unsigned videoSaveFirstFrames; // >= 0, overrides videoStride
+    unsigned videoFps; // > 0, playback frame rate
     unsigned displayScale;
     float uiScale; // 1.0 or 1.5 - scales window size and display
     unsigned agentSize;

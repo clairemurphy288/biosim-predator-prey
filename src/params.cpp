@@ -54,6 +54,7 @@ void ParamManager::setDefaults()
     privParams.saveVideo = true;
     privParams.videoStride = 25;
     privParams.videoSaveFirstFrames = 2;
+    privParams.videoFps = 60;
     privParams.displayScale = 8;
     privParams.uiScale = 1.0;
     privParams.agentSize = 4;
@@ -267,6 +268,9 @@ void ParamManager::ingestParameter(std::string name, std::string val)
         }
         else if (name == "videosavefirstframes" && isUint) {
             privParams.videoSaveFirstFrames = uVal; break;
+        }
+        else if (name == "videofps" && isUint && uVal > 0) {
+            privParams.videoFps = uVal; break;
         }
         else if (name == "displayscale" && isUint && uVal > 0) {
             privParams.displayScale = uVal; break;

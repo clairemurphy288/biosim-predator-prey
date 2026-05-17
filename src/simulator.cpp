@@ -264,7 +264,7 @@ void simulator(int argc, char **argv)
     randomUint.initialize(); // seed the RNG for main-thread use
 
     // UI must be initialized after parameters
-    userIO = new UserIO(!headless, false);
+    userIO = new UserIO(!headless, p.saveVideo);
     
     runMode = RunMode::RUN;
     unsigned generation = 0;
