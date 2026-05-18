@@ -40,9 +40,9 @@ set -euo pipefail
 #   "Yannic"       → Y1 Y2 Y3
 #   "Claire"       → C1 C2 C3 C4
 #   "B1 Y2 C3"     → any explicit list
-RUN_GROUPS="${RUN_GROUPS:-B1}"
+RUN_GROUPS="${RUN_GROUPS:-all}"
 
-SEEDS=(1)
+SEEDS=(1 2 3)
 
 # ── CTRL: Control runs (predatorPreyEnabled=false) ───────────────────────────
 # These are the no-predation baselines required for causal interpretation.
