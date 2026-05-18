@@ -1,2 +1,4 @@
 obj/
 build/
+.claude/
+.claude/worktrees/optimistic-margulis-72045e

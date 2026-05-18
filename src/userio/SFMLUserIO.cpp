@@ -369,7 +369,12 @@ namespace BS
         return p.displayScale / p.uiScale;
     }
 
-    void SFMLUserIO::endOfGeneration(unsigned generation) {}
+    void SFMLUserIO::endOfGeneration(unsigned generation)
+    {
+        // Net auto-save is now handled in UserIO::endOfGeneration so it works
+        // in both headless and windowed mode. Nothing to do here.
+        (void)generation;
+    }
 
     void SFMLUserIO::log(std::string message)
     {

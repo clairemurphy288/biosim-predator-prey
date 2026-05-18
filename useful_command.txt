@@ -1,0 +1,52 @@
+══════════════════════════════════════════════════════════════════════
+  biosim4 — predator/prey coevolution workflow
+══════════════════════════════════════════════════════════════════════
+
+  ─── Build ────────────────────────────────────────────────────────────
+make release
+
+  ─── Run a single simulation ──────────────────────────────────────────
+./bin/Release/biosim4 biosim4.ini                  # with visual UI
+./bin/Release/biosim4 biosim4.ini --headless       # no visual
+
+  ─── Analyse a single run ─────────────────────────────────────────────
+.venv/bin/python3 tools/analyse.py
+.venv/bin/python3 tools/analyse.py --burn-in 50 --smooth 5 --split-figures
+.venv/bin/python3 tools/analyse.py --log Output/Logs/<name>.txt \
+                                   --out Output/<name>.png \
+                                   --report Output/<name>.md \
+                                   --title "<name>"
+
+  Common flags:
+    --burn-in N       drop first N gens as transient  (default 0)
+    --smooth W        rolling-mean window (default 5; 0 = off)
+    --split-figures   also save per-panel PNGs
+    --max-lag L       max lag for cross-correlation (default 40 gens)
+    --n-perm K        permutations for cross-corr null (default 2000)
+
+  Outputs:
+    Output/analysis.png             composite figure
+    Output/analysis_report.md       markdown verdict table
+    Output/analysis_panels/*.png    per-panel images (with --split-figures)
+
+  ─── Run the full experiment matrix ───────────────────────────────────
+# Edit the arrays at the top of tools/run_sweep.sh first.
+# Each combination is run headless and analysed automatically.
+./tools/run_sweep.sh --dry-run        # print every config without running
+./tools/run_sweep.sh                  # run + analyse all combinations
+
+  Outputs:
+    Output/Logs/<name>.txt                 per-run epoch log
+    Output/Sweep/<name>/analysis.png       per-run composite figure
+    Output/Sweep/<name>/analysis_report.md per-run markdown report
+    tmp/sweep/<name>.ini                   the exact config used
+
+  ─── Convenience: build + analyse from existing log ───────────────────
+./tools/postrun.sh                  # NN graphs + analysis, keep all
+./tools/postrun.sh --clean          # then delete intermediate .txt + .svg
+./tools/postrun.sh --wipe           # nuke Output/ for a fresh run
+
+  ─── NN edge-list → SVG (manual) ──────────────────────────────────────
+for f in Output/Images/*.txt; do
+  .venv/bin/python3 tools/graph-nnet.py -i "$f" -o "${f%.txt}.svg"
+done

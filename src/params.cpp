@@ -24,7 +24,7 @@ void ParamManager::setDefaults()
 {
     privParams.sizeX = 128;
     privParams.sizeY = 128;
-    privParams.challenge = 6;
+    privParams.challenge = 20;
 
     privParams.genomeInitialLengthMin = 24;
     privParams.genomeInitialLengthMax = 24;
@@ -54,6 +54,7 @@ void ParamManager::setDefaults()
     privParams.saveVideo = true;
     privParams.videoStride = 25;
     privParams.videoSaveFirstFrames = 2;
+    privParams.videoFps = 60;
     privParams.displayScale = 8;
     privParams.uiScale = 1.0;
     privParams.agentSize = 4;
@@ -66,12 +67,28 @@ void ParamManager::setDefaults()
     privParams.RNGSeed = 12345678;
     privParams.graphLogUpdateCommand = "";//"/usr/bin/gnuplot --persist ./tools/graphlog.gp";
     privParams.parameterChangeGenerationNumber = 0;
+    privParams.autoSavePredatorNetsPerGeneration = 0;
+    privParams.autoSavePreyNetsPerGeneration = 0;
+    privParams.autoSaveNetEpochs = 0;
+    privParams.autoSaveNetStride = 10;
 
-    // Predator-prey defaults (off unless you choose the predator-prey challenge)
+    // Predator-prey defaults
+    privParams.predatorPreyEnabled = false;        // disabled by default
     privParams.predatorFraction = 0.2;
     privParams.predatorMinCapturesToReproduce = 1;
     privParams.predatorCaptureNorm = 5;
     privParams.predatorPreyPerceptionRadius = 6.0f;
+    privParams.predatorActionPeriod = 1;
+    privParams.preyActionPeriod     = 1;
+
+    // Predator-prey dynamics extensions
+    privParams.predatorRatioMode          = 0;     // fixed by default = original behaviour
+    privParams.predatorRatioFloor         = 0.10;
+    privParams.predatorRatioCeil          = 0.90;
+    privParams.predatorRatioGain          = 1.0;
+    privParams.predatorStarvationSteps    = 0;     // disabled by default
+    privParams.predatorStarvationGrace    = 50;
+    privParams.preyTopFractionToReproduce = 1.0;
 }
 
 
@@ -252,6 +269,9 @@ void ParamManager::ingestParameter(std::string name, std::string val)
         else if (name == "videosavefirstframes" && isUint) {
             privParams.videoSaveFirstFrames = uVal; break;
         }
+        else if (name == "videofps" && isUint && uVal > 0) {
+            privParams.videoFps = uVal; break;
+        }
         else if (name == "displayscale" && isUint && uVal > 0) {
             privParams.displayScale = uVal; break;
         }
@@ -291,6 +311,18 @@ void ParamManager::ingestParameter(std::string name, std::string val)
         else if (name == "autosave" && isBool) {
             privParams.autoSave = bVal; break;
         }
+        else if (name == "autosavepredatornetspergeneration" && isUint) {
+            privParams.autoSavePredatorNetsPerGeneration = uVal; break;
+        }
+        else if (name == "autosavepreynetspergeneration" && isUint) {
+            privParams.autoSavePreyNetsPerGeneration = uVal; break;
+        }
+        else if (name == "autosavenetepochs" && isUint) {
+            privParams.autoSaveNetEpochs = uVal; break;
+        }
+        else if (name == "autosavenetstride" && isUint && uVal > 0) {
+            privParams.autoSaveNetStride = uVal; break;
+        }
         else if (name == "predatorfraction" && isFloat && dVal >= 0.0 && dVal <= 1.0) {
             privParams.predatorFraction = dVal; break;
         }
@@ -302,6 +334,36 @@ void ParamManager::ingestParameter(std::string name, std::string val)
         }
         else if (name == "predatorpreyperceptionradius" && isFloat && dVal > 0.0) {
             privParams.predatorPreyPerceptionRadius = static_cast<float>(dVal); break;
+        }
+        else if (name == "predatorpreyenabled" && isBool) {
+            privParams.predatorPreyEnabled = bVal; break;
+        }
+        else if (name == "predatoractionperiod" && isUint && uVal >= 1) {
+            privParams.predatorActionPeriod = uVal; break;
+        }
+        else if (name == "preyactionperiod" && isUint && uVal >= 1) {
+            privParams.preyActionPeriod = uVal; break;
+        }
+        else if (name == "predatorratiomode" && isUint && uVal <= 1) {
+            privParams.predatorRatioMode = uVal; break;
+        }
+        else if (name == "predatorratiofloor" && isFloat && dVal >= 0.0 && dVal <= 1.0) {
+            privParams.predatorRatioFloor = dVal; break;
+        }
+        else if (name == "predatorratioceil" && isFloat && dVal >= 0.0 && dVal <= 1.0) {
+            privParams.predatorRatioCeil = dVal; break;
+        }
+        else if (name == "predatorratiogain" && isFloat && dVal > 0.0) {
+            privParams.predatorRatioGain = dVal; break;
+        }
+        else if (name == "predatorstarvationsteps" && isUint) {
+            privParams.predatorStarvationSteps = uVal; break;
+        }
+        else if (name == "predatorstarvationgrace" && isUint) {
+            privParams.predatorStarvationGrace = uVal; break;
+        }
+        else if (name == "preytopfractiontoreproduce" && isFloat && dVal >= 0.0 && dVal <= 1.0) {
+            privParams.preyTopFractionToReproduce = dVal; break;
         }
         else {
             std::cout << "Invalid param: " << name << " = " << val << std::endl;

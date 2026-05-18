@@ -20,6 +20,8 @@ class Save {
 public:
     static void save(std::string fileName = "Output/Saves/simulation.bin");
     static void load(std::string fileName = "Output/Saves/simulation.bin");
+    static const std::string &lastNetSaveError();
+    static std::string saveNetAsFile(int selectedIndex, const std::string &filename);
     static std::string saveNet(int selectedIndex);
 };
 

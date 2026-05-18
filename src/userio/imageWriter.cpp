@@ -26,7 +26,7 @@ void saveOneFrameImmed(const ImageFrameData &data)
     CImg<uint8_t> image(p.sizeX * p.displayScale, p.sizeY * p.displayScale,
                         1,   // Z depth
                         3,   // color channels
-                        255);  // initial value
+                        0);  // black background
     uint8_t color[3];
     std::stringstream imageFilename;
     imageFilename << p.imageDir << "frame-"
@@ -49,22 +49,11 @@ void saveOneFrameImmed(const ImageFrameData &data)
 
     // Draw agents
 
-    constexpr uint8_t maxColorVal = 0xb0;
-    constexpr uint8_t maxLumaVal = 0xb0;
-
-    auto rgbToLuma = [](uint8_t r, uint8_t g, uint8_t b) { return (r+r+r+b+g+g+g+g) / 8; };
-
     for (size_t i = 0; i < data.indivLocs.size(); ++i) {
-        int c = data.indivColors[i];
-        color[0] = (c);                  // R: 0..255
-        color[1] = ((c & 0x1f) << 3);    // G: 0..255
-        color[2] = ((c & 7)    << 5);    // B: 0..255
-
-        // Prevent color mappings to very bright colors (hard to see):
-        if (rgbToLuma(color[0], color[1], color[2]) > maxLumaVal) {
-            if (color[0] > maxColorVal) color[0] %= maxColorVal;
-            if (color[1] > maxColorVal) color[1] %= maxColorVal;
-            if (color[2] > maxColorVal) color[2] %= maxColorVal;
+        if (data.indivColors[i]) {
+            color[0] = 220; color[1] = 60;  color[2] = 60;  // predator: red
+        } else {
+            color[0] = 60;  color[1] = 220; color[2] = 120; // prey: green
         }
 
         image.draw_circle(
@@ -98,18 +87,6 @@ void ImageWriter::startNewGeneration()
 }
 
 
-uint8_t makeGeneticColor(const Genome &genome)
-{
-    return ((genome.size() & 1)
-         | ((genome.front().sourceType)    << 1)
-         | ((genome.back().sourceType)     << 2)
-         | ((genome.front().sinkType)      << 3)
-         | ((genome.back().sinkType)       << 4)
-         | ((genome.front().sourceNum & 1) << 5)
-         | ((genome.front().sinkNum & 1)   << 6)
-         | ((genome.back().sourceNum & 1)  << 7));
-}
-
 // Synchronous version, always returns true
 bool ImageWriter::saveVideoFrameSync(unsigned simStep, unsigned generation)
 {
@@ -128,7 +105,7 @@ bool ImageWriter::saveVideoFrameSync(unsigned simStep, unsigned generation)
         Indiv &indiv = peeps[index];
         if (indiv.alive) {
             data.indivLocs.push_back(indiv.loc);
-            data.indivColors.push_back(makeGeneticColor(indiv.genome));
+            data.indivColors.push_back(indiv.type == AgentType::PREDATOR ? 1 : 0);
         }
     }
 
@@ -152,7 +129,7 @@ void ImageWriter::saveGenerationVideo(unsigned generation)
                       << ".avi";
         cv::setNumThreads(2);
         imageList.save_video(videoFilename.str().c_str(),
-                             25,
+                             p.videoFps,
                              "H264");
         if (skippedFrames > 0) {
             std::cout << "Video skipped " << skippedFrames << " frames" << std::endl;

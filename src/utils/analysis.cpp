@@ -6,8 +6,10 @@
 #include <cassert>
 #include <cstring>
 #include <string>
+#include <algorithm>
 #include "../simulator.h"
 #include "../ai/sensors-actions.h"
+#include "../ai/indiv.h"
 #include "../peeps.h"
 #include "../params.h"
 #include "../ai/signals.h"
@@ -255,23 +257,89 @@ float averageGenomeLength()
 }
 
 
-// The epoch log contains one line per generation in a format that can be
-// fed to graphlog.gp to produce a chart of the simulation progress.
-// ToDo: remove hardcoded filename.
-void appendEpochLog(unsigned generation, unsigned numberSurvivors, unsigned murderCount)
+// The epoch log contains one line per generation in a format that is consumed
+// by tools/analyse.py.
+// Columns:
+//   #gen        - generation number
+//   survivors   - parent-eligible individuals (passed survival criterion)
+//   diversity   - population genetic diversity (0..1)
+//   genome_len  - mean genome length
+//   kills       - prey killed by predators this gen (sum of predator captures)
+//   starved    - predators that died of starvation this gen
+//   pred_surv   - predator parents (passed survival criterion)
+//   prey_surv   - prey parents (passed survival criterion)
+//   pred_fit    - mean predator fitness (captures / predatorCaptureNorm), 0..1
+//   prey_fit    - mean prey fitness (age / stepsPerGeneration), 0..1
+//   pred_frac   - predator fraction at the START of the NEXT generation
+void appendEpochLog(unsigned generation, unsigned numberSurvivors, unsigned murderCount,
+                    unsigned predSurvivors, unsigned preySurvivors,
+                    double nextPredatorFraction)
 {
+    (void)murderCount; // kept for backward compatibility of the call site; we
+                      // recompute kills directly below so that "kills" never
+                      // conflates predator captures with starvation deaths.
+
+    double predFitnessSum = 0.0;
+    double preyFitnessSum = 0.0;
+    unsigned predTotal = 0;
+    unsigned preyTotal = 0;
+    unsigned totalKills = 0;
+    unsigned starvedCount = 0;
+
+    for (unsigned index = 1; index <= p.population; ++index) {
+        const Indiv &indiv = peeps[index];
+        if (indiv.type == AgentType::PREDATOR) {
+            predFitnessSum += std::min(1.0f,
+                indiv.captures / static_cast<float>(p.predatorCaptureNorm));
+            ++predTotal;
+            totalKills += indiv.captures;
+            if (indiv.diedOfStarvation) ++starvedCount;
+        } else {
+            preyFitnessSum += std::min(1.0f,
+                indiv.age / static_cast<float>(p.stepsPerGeneration));
+            ++preyTotal;
+        }
+    }
+
+    const double predFitness = (predTotal > 0) ? predFitnessSum / predTotal : 0.0;
+    const double preyFitness = (preyTotal > 0) ? preyFitnessSum / preyTotal : 0.0;
+
     std::ofstream foutput;
 
     if (generation == 0) {
         foutput.open(p.logDir + "/epoch-log.txt");
+        foutput << std::left
+                << std::setw(6)  << "#gen"
+                << std::setw(10) << "survivors"
+                << std::setw(10) << "diversity"
+                << std::setw(11) << "genome_len"
+                << std::setw(9)  << "kills"
+                << std::setw(9)  << "starved"
+                << std::setw(11) << "pred_surv"
+                << std::setw(11) << "prey_surv"
+                << std::setw(10) << "pred_fit"
+                << std::setw(10) << "prey_fit"
+                << std::setw(11) << "pred_frac"
+                << "\n";
         foutput.close();
     }
 
     foutput.open(p.logDir + "/epoch-log.txt", std::ios::app);
 
     if (foutput.is_open()) {
-        foutput << generation << " " << numberSurvivors << " " << geneticDiversity()
-                << " " << averageGenomeLength() << " " << murderCount << std::endl;
+        foutput << std::right
+                << std::setw(6)  << generation
+                << std::setw(10) << numberSurvivors
+                << std::setw(10) << std::fixed << std::setprecision(4) << geneticDiversity()
+                << std::setw(11) << std::fixed << std::setprecision(1) << averageGenomeLength()
+                << std::setw(9)  << totalKills
+                << std::setw(9)  << starvedCount
+                << std::setw(11) << predSurvivors
+                << std::setw(11) << preySurvivors
+                << std::setw(10) << std::fixed << std::setprecision(4) << predFitness
+                << std::setw(10) << std::fixed << std::setprecision(4) << preyFitness
+                << std::setw(11) << std::fixed << std::setprecision(4) << nextPredatorFraction
+                << "\n";
     } else {
         assert(false);
     }

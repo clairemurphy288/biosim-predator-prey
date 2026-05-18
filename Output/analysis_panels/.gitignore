@@ -1,0 +1,3 @@
+# Ignore generated panel figures — regenerable from epoch-log.txt via analyse.py.
+*
+!.gitignore

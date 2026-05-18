@@ -64,11 +64,12 @@ SOURCE :=  $(wildcard src/*.cpp src/*.h src/userio/*.cpp src/userio/*.h \
   src/userio/sfmlComponents/flowComponents/*.cpp src/userio/sfmlComponents/flowComponents/*.h \
   src/userio/sfmlComponents/settingsComponents/*.cpp src/userio/sfmlComponents/settingsComponents/*.h \
   )
-SOURCE := $(filter-out src/userio/imageWriter.cpp,$(SOURCE))
+SOURCE := $(filter-out src/userio/imageWriter_stub.cpp,$(SOURCE))
 CXXSOURCE :=  $(filter %.cpp, $(SOURCE))
 HEADERS :=  $(filter %.h, $(SOURCE))
 OBJS := $(subst src/,$(OBJ_DIR)/, $(CXXSOURCE:.cpp=.o))
-INCLUDES = -I./src/include
+INCLUDES = -I./src/include -I/opt/homebrew/include
+CXXFLAGS += $(INCLUDES)
 LIBS = -L/path/to/cereal/lib -lcereal
 
 

@@ -1,4 +1,6 @@
 #include "UserIO.h"
+#include "../ai/indiv.h"
+#include <algorithm>
 
 namespace BS {
 
@@ -75,7 +77,34 @@ namespace BS {
 
         if (this->imageWriter != nullptr)
             this->imageWriter->endOfGeneration(generation);
-        
+
+        // Neural net auto-save — runs in both headless and windowed mode.
+        if (p.autoSaveNetEpochs > 0
+                && generation < p.autoSaveNetEpochs
+                && generation % p.autoSaveNetStride == 0
+                && (p.autoSavePredatorNetsPerGeneration > 0 || p.autoSavePreyNetsPerGeneration > 0)) {
+
+            std::vector<uint16_t> predIdxs, preyIdxs;
+            predIdxs.reserve(p.population);
+            preyIdxs.reserve(p.population);
+            for (uint16_t idx = 1; idx <= p.population; ++idx) {
+                const Indiv &indiv = peeps[idx];
+                if (!indiv.alive || indiv.nnet.connections.empty()) continue;
+                if (indiv.type == AgentType::PREDATOR) predIdxs.push_back(idx);
+                else                                   preyIdxs.push_back(idx);
+            }
+
+            const std::string base = p.imageDir + "/gen-" + std::to_string(generation);
+            const unsigned nPred = std::min(p.autoSavePredatorNetsPerGeneration,
+                                            (unsigned)predIdxs.size());
+            const unsigned nPrey = std::min(p.autoSavePreyNetsPerGeneration,
+                                            (unsigned)preyIdxs.size());
+            for (unsigned i = 0; i < nPred; ++i)
+                Save::saveNetAsFile(predIdxs[i], base + "-pred-id-" + std::to_string(predIdxs[i]) + ".svg");
+            for (unsigned i = 0; i < nPrey; ++i)
+                Save::saveNetAsFile(preyIdxs[i], base + "-prey-id-" + std::to_string(preyIdxs[i]) + ".svg");
+        }
+
         if (p.updateGraphLog && (generation == 1 || ((generation % p.updateGraphLogStride) == 0))) {
             std::system(p.graphLogUpdateCommand.c_str());
         }

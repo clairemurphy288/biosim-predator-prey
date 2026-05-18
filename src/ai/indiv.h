@@ -34,6 +34,8 @@ struct Indiv {
     Dir lastMoveDir;  // direction of last movement
     unsigned challengeBits; // modified when the indiv accomplishes some task
     unsigned captures = 0; // predator-prey: number of prey captured this generation
+    unsigned lastKillStep = 0;        // simStep of most recent capture (predators only)
+    bool diedOfStarvation = false;    // set true if a predator dies during gen from no-kill timeout
     std::array<float, Action::NUM_ACTIONS> feedForward(unsigned simStep); // reads sensors, returns actions
     float getSensor(Sensor, unsigned simStep) const;
     void initialize(uint16_t index, Coord loc, Genome &&genome, AgentType type);
