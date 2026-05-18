@@ -61,7 +61,7 @@ B1_CHALLENGES=(20 0 5 11)          # open, circle, corner, wall
 B2_MUTATION_RATES=(0.0001 0.001 0.01)
 B2_CHALLENGES=(20 0)               # open, circle
 
-B3_PRED_FRACTIONS=(0.25 0.50 0.75)
+B3_PRED_FRACTIONS=(0.1 0.25 0.50 0.75)
 B3_CHALLENGES=(20 0)               # open, circle
 
 # ── Y: Speed experiments (Yannic) ────────────────────────────────────────────
