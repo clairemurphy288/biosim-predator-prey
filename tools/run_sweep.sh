@@ -112,7 +112,7 @@ MAX_GENERATIONS=400
 # HEADLESS=false → shows SFML window during simulation
 # SAVE_VIDEO is independent of HEADLESS — video writing does not need the window.
 HEADLESS=true
-SAVE_VIDEO=false       # true = save .avi frames regardless of HEADLESS
+SAVE_VIDEO=true       # true = save .avi frames regardless of HEADLESS
 
 # SAVE_NETS=true  → save one predator + one prey neural net snapshot every
 #                   NETS_STRIDE generations, stored in images/ alongside frames.
