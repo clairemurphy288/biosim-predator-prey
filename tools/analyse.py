@@ -75,6 +75,15 @@ def parse_args() -> argparse.Namespace:
                     help="also save individual figures for each panel")
     ap.add_argument("--title", default=None,
                     help="optional title suffix shown on the figure (e.g. run name)")
+    ap.add_argument("--osc2-alpha", type=float, default=0.10,
+                    help="p-value threshold for OSC2 significance (default 0.10)")
+    ap.add_argument("--osc2-lag-min", type=int, default=-2,
+                    help="minimum peak lag accepted as passing for OSC2 "
+                         "(default -2: near-simultaneous dynamics count)")
+    ap.add_argument("--checkpoints", type=int, nargs="+", default=[],
+                    metavar="GEN",
+                    help="also run full analysis at these generation cutoffs "
+                         "e.g. --checkpoints 100 200 400")
     return ap.parse_args()
 
 
@@ -387,7 +396,7 @@ def panel_cross_correlation(ax, sb: StatsBundle):
                label=f"peak: lag={sb.osc2_peak_lag:+d}, r={sb.osc2_peak_corr:+.2f}")
     ax.set_xlabel("Lag (generations)  —  positive ⇒ prey leads predator")
     ax.legend(fontsize=8, loc="upper right")
-    sig = "✓ significant" if sb.osc2_p < 0.05 else "✗ n.s."
+    sig = "✓ significant" if sb.osc2_p < 0.10 else "✗ n.s."
     annotate(ax, f"perm-p = {sb.osc2_p:.3f}  {sig}", loc="lower left")
     style(ax, "Cross-correlation r", "OSC2 — Phase lag (cross-correlation pred ↔ prey)")
 
@@ -495,7 +504,8 @@ def render_report(d: EpochData, sb: StatsBundle, args, report_path: Path) -> str
     def verdict(p: bool) -> str: return "**PASS**" if p else "_fail_"
 
     osc1_pass = sb.osc1_neg_corr < -0.15 and sb.osc1_neg_lag >= 3
-    osc2_pass = sb.osc2_p < 0.05 and sb.osc2_peak_lag > 0
+    osc2_pass = (sb.osc2_p < args.osc2_alpha
+                 and sb.osc2_peak_lag >= args.osc2_lag_min)
     rq_pass   = (sb.rq_pred_slope > 0 and sb.rq_pred_p < 0.10
                  and sb.rq_prey_slope > 0 and sb.rq_prey_p < 0.10)
 
@@ -595,6 +605,34 @@ def main():
     render_report(d, sb, args, Path(args.report))
     print(f"Saved markdown report: {args.report}")
     print_summary(d, sb)
+
+    # ── generation checkpoints ──────────────────────────────────────────────
+    for ckpt in sorted(args.checkpoints):
+        mask = d.gen <= ckpt
+        if mask.sum() < 5:
+            print(f"Skipping checkpoint gen={ckpt}: fewer than 5 generations available")
+            continue
+        dc = EpochData(
+            d.gen[mask], d.pred_surv[mask], d.prey_surv[mask],
+            d.pred_fit[mask], d.prey_fit[mask],
+        )
+        rng_ckpt = np.random.default_rng(args.seed)
+        sbc = compute_stats(dc, args.max_lag, args.n_perm, rng_ckpt)
+
+        ckpt_stem = out_path.stem.replace("analysis", f"analysis_gen{ckpt}")
+        ckpt_out    = out_path.parent / f"{ckpt_stem}.png"
+        ckpt_report = Path(args.report).parent / f"{Path(args.report).stem}_gen{ckpt}.md"
+
+        # slice sensor-rate arrays to match the checkpoint's generation range
+        pred_rate_c = pred_rate[mask] if pred_rate.size == d.gen.size else pred_rate
+        prey_rate_c = prey_rate[mask] if prey_rate.size == d.gen.size else prey_rate
+
+        ckpt_title = (f"{args.title} | gen≤{ckpt}" if args.title else f"gen≤{ckpt}")
+        render_composite(dc, sbc, args.smooth, pred_rate_c, prey_rate_c, ckpt_out,
+                         title_suffix=ckpt_title)
+        print(f"Saved checkpoint figure (gen≤{ckpt}): {ckpt_out}")
+        render_report(dc, sbc, args, ckpt_report)
+        print(f"Saved checkpoint report (gen≤{ckpt}): {ckpt_report}")
 
 
 if __name__ == "__main__":

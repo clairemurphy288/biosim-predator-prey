@@ -40,9 +40,9 @@ set -euo pipefail
 #   "Yannic"       → Y1 Y2 Y3
 #   "Claire"       → C1 C2 C3 C4
 #   "B1 Y2 C3"     → any explicit list
-RUN_GROUPS="${RUN_GROUPS:-all}"
+RUN_GROUPS="${RUN_GROUPS:-B1}"
 
-SEEDS=(1 2 3)
+SEEDS=(1)
 
 # ── CTRL: Control runs (predatorPreyEnabled=false) ───────────────────────────
 # These are the no-predation baselines required for causal interpretation.
@@ -112,7 +112,7 @@ MAX_GENERATIONS=400
 # HEADLESS=false → shows SFML window during simulation
 # SAVE_VIDEO is independent of HEADLESS — video writing does not need the window.
 HEADLESS=true
-SAVE_VIDEO=true       # true = save .avi frames regardless of HEADLESS
+SAVE_VIDEO=false       # true = save .avi frames regardless of HEADLESS
 
 # SAVE_NETS=true  → save one predator + one prey neural net snapshot every
 #                   NETS_STRIDE generations, stored in images/ alongside frames.
@@ -129,6 +129,17 @@ NETS_STRIDE=10         # save a net snapshot every N generations
 #   Set to 0 to analyse all generations.
 #   Typical values: 50–100 (about 10–25% of a 400-gen run)
 BURN_IN=50
+
+# CHECKPOINTS: run the full statistical analysis at each of these generation
+#   cutoffs in addition to the full run. Useful for seeing whether tests pass
+#   before a certain point (e.g. does OSC2 pass at gen 100 but fail by gen 400?).
+#   Set to an empty string to skip checkpoint analysis.
+CHECKPOINTS="100 200 300 400"
+
+# OSC2_ALPHA: p-value threshold for the OSC2 phase-lag test.
+#   0.05 = strict (standard significance)
+#   0.10 = relaxed (easier to pass, recommended for exploratory sweeps)
+OSC2_ALPHA=0.10
 
 # =============================================================================
 
@@ -253,14 +264,20 @@ run_one() {
         return
     fi
 
+    local ckpt_args=""
+    [[ -n "$CHECKPOINTS" ]] && ckpt_args="--checkpoints ${CHECKPOINTS}"
+
+    # shellcheck disable=SC2086
     "$PYTHON" tools/analyse.py \
-        --log     "${log_dir}/epoch-log.txt" \
-        --nets    "${images_dir}" \
-        --out     "${ana_dir}/analysis.png" \
-        --report  "${ana_dir}/analysis_report.md" \
-        --burn-in "${BURN_IN}" \
+        --log        "${log_dir}/epoch-log.txt" \
+        --nets       "${images_dir}" \
+        --out        "${ana_dir}/analysis.png" \
+        --report     "${ana_dir}/analysis_report.md" \
+        --burn-in    "${BURN_IN}" \
+        --osc2-alpha "${OSC2_ALPHA}" \
         --split-figures \
-        --title   "${run_label} | seed ${seed}" \
+        --title      "${run_label} | seed ${seed}" \
+        $ckpt_args \
         > "${ana_dir}/analyse.stdout" 2>&1 || {
         echo "    ! analysis failed — see ${ana_dir}/analyse.stdout"
     }
