@@ -31,8 +31,9 @@ CXXFLAGS += \
   $(SYSROOT_FLAGS) \
   $(OMP_CXXFLAGS) \
   -I./src/include \
+  -I/usr/local/include \
+  -I/usr/include \
   $(shell pkg-config --cflags sfml-graphics) \
-  -I/opt/homebrew/opt/tgui/include \
   $(shell pkg-config --cflags opencv4)
 
 LDFLAGS += \
@@ -42,7 +43,7 @@ LDFLAGS += \
   $(OMP_LDLIBS) \
   -lpthread \
   $(shell pkg-config --libs sfml-graphics) \
-  -L/opt/homebrew/opt/tgui/lib \
+  -L/usr/local/lib \
   -ltgui
 
 ifeq ($(BUILD),debug)
@@ -68,9 +69,9 @@ SOURCE := $(filter-out src/userio/imageWriter_stub.cpp,$(SOURCE))
 CXXSOURCE :=  $(filter %.cpp, $(SOURCE))
 HEADERS :=  $(filter %.h, $(SOURCE))
 OBJS := $(subst src/,$(OBJ_DIR)/, $(CXXSOURCE:.cpp=.o))
-INCLUDES = -I./src/include -I/opt/homebrew/include
+INCLUDES = -I./src/include -I/usr/local/include -I/usr/include
 CXXFLAGS += $(INCLUDES)
-LIBS = -L/path/to/cereal/lib -lcereal
+
 
 
 all: debug release
