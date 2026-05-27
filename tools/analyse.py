@@ -15,8 +15,13 @@ Three falsifiable predictions only:
           destroys the cross alignment.
 
     RED-QUEEN
-          Both pred_fit and prey_fit should have a positive linear trend
-          across generations (both species are improving in tandem).
+          Coevolution avoids evolutionary stasis: both species persist
+          (no extinction) AND realised fitness keeps fluctuating rather
+          than freezing at a constant-phenotype ESS.  It deliberately does
+          NOT require fitness to rise -- a capture is a predator gain and a
+          prey loss, so the two fitnesses are near zero-sum and a joint
+          upward trend is impossible by construction (and would contradict
+          Van Valen's Red Queen: constant realised fitness despite change).
 
 Plus two qualitative panels (no test, just visual):
 
@@ -142,6 +147,20 @@ class EpochData:
 # =============================================================================
 # Statistics
 # =============================================================================
+# Late-window fitness sd above this counts as "still running" rather than
+# frozen at an ESS.  Calibrated against the sweep: no-predation controls give
+# exactly 0.000 (fitness pinned at a ceiling); predation runs give >= 0.05.
+RQ_FLUCT_FLOOR = 0.02
+
+# A species "persists" only if its final-quartile mean survivors stay above
+# this fraction of its pre-late-window baseline median -- i.e. it did not
+# collapse by >80%.  Scale-free, so it tolerates the intrinsically small,
+# steady predator subpopulation (median ~1 survivor/gen) while still catching a
+# genuine end-of-run crash.  Calibrated against the sweep: healthy runs sit at
+# >= 0.38 of baseline; true extinction hits the separate "late mean > 0" clause.
+RQ_PERSIST_FRAC = 0.2
+
+
 def rolling_mean(y: np.ndarray, w: int) -> np.ndarray:
     if w < 2 or len(y) < w:
         return np.array(y, dtype=float)
@@ -204,6 +223,33 @@ def estimate_period(y: np.ndarray) -> int:
     return int(round(1.0 / f)) if f > 0 else 0
 
 
+def species_persists(surv: np.ndarray, q: int) -> bool:
+    """A species persists if it is present at the end of the run AND has not
+    collapsed relative to its earlier baseline (median of the pre-late window).
+    Catches the 'extinction' outcome -- including a gradual end-of-run crash --
+    while tolerating the naturally low, steady predator survivor counts."""
+    surv = np.asarray(surv, dtype=float)
+    late = float(np.nanmean(surv[-q:]))
+    if late <= 0:
+        return False
+    baseline = (float(np.nanmedian(surv[:-q])) if len(surv) > q
+                else float(np.nanmedian(surv)))
+    if baseline <= 0:
+        return True  # no earlier baseline to fall from; presence at the end suffices
+    return late >= RQ_PERSIST_FRAC * baseline
+
+
+def fitness_fluctuation(y: np.ndarray, q: int):
+    """Std of the *detrended* fitness series in the first and last q
+    generations.  A frozen series gives ~0; a still-oscillating one stays
+    well above the noise floor.  Detrending first so a slow drift is not
+    mistaken for sustained fluctuation."""
+    yd = detrend_linear(np.asarray(y, dtype=float))
+    early = float(np.nanstd(yd[:q])) if q <= len(yd) else float("nan")
+    late = float(np.nanstd(yd[-q:]))
+    return early, late
+
+
 def linear_trend(y: np.ndarray):
     y = np.asarray(y, dtype=float)
     mask = np.isfinite(y)
@@ -229,11 +275,30 @@ class StatsBundle:
     osc2_peak_corr: float = 0.0
     osc2_null_95: float = 0.0
     osc2_p: float = 1.0
-    # RED-QUEEN
+    # RED-QUEEN (non-stasis / three-outcomes test)
     rq_pred_slope: float = 0.0
     rq_pred_p: float = 1.0
     rq_prey_slope: float = 0.0
     rq_prey_p: float = 1.0
+    rq_persist: bool = False
+    rq_nonstasis: bool = False
+    rq_pred_fluct_early: float = 0.0
+    rq_pred_fluct_late: float = 0.0
+    rq_prey_fluct_early: float = 0.0
+    rq_prey_fluct_late: float = 0.0
+    rq_pred_surv_late: float = 0.0
+    rq_prey_surv_late: float = 0.0
+
+
+def compute_verdicts(sb: StatsBundle, osc2_alpha: float = 0.10,
+                     osc2_lag_min: int = -2) -> dict:
+    """Single source of truth for the three pass/fail verdicts, shared by the
+    per-run report and the sweep-level overview so thresholds never drift."""
+    return {
+        "OSC1": bool(sb.osc1_neg_corr < -0.15 and sb.osc1_neg_lag >= 3),
+        "OSC2": bool(sb.osc2_p < osc2_alpha and sb.osc2_peak_lag >= osc2_lag_min),
+        "RED-QUEEN": bool(sb.rq_persist and sb.rq_nonstasis),
+    }
 
 
 def compute_stats(d: EpochData, max_lag: int, n_perm: int,
@@ -267,9 +332,24 @@ def compute_stats(d: EpochData, max_lag: int, n_perm: int,
             sb.osc2_null_95 = float(np.quantile(null, 0.95))
             sb.osc2_p = float(np.mean(null >= abs(sb.osc2_peak_corr)))
 
-    # RED QUEEN: linear trends on raw fitness
+    # RED QUEEN: a coevolving predator-prey system ends in one of three
+    # outcomes (Dieckmann, Marrow & Law 1995): a species goes extinct, it
+    # settles to a constant-phenotype ESS, or it keeps cycling -- the Red
+    # Queen.  We detect the third by ruling out the first two: both species
+    # persist AND realised fitness keeps fluctuating instead of freezing.
+    # Slopes are kept only as a drift diagnostic for the plot/report.
     sb.rq_pred_slope, sb.rq_pred_p = linear_trend(d.pred_fit)
     sb.rq_prey_slope, sb.rq_prey_p = linear_trend(d.prey_fit)
+    n = len(d.gen)
+    q = max(n // 4, 4)
+    sb.rq_pred_surv_late = float(np.nanmean(d.pred_surv[-q:]))
+    sb.rq_prey_surv_late = float(np.nanmean(d.prey_surv[-q:]))
+    sb.rq_persist = (species_persists(d.pred_surv, q)
+                     and species_persists(d.prey_surv, q))
+    sb.rq_pred_fluct_early, sb.rq_pred_fluct_late = fitness_fluctuation(d.pred_fit, q)
+    sb.rq_prey_fluct_early, sb.rq_prey_fluct_late = fitness_fluctuation(d.prey_fit, q)
+    sb.rq_nonstasis = (sb.rq_prey_fluct_late > RQ_FLUCT_FLOOR
+                       or sb.rq_pred_fluct_late > RQ_FLUCT_FLOOR)
     return sb
 
 
@@ -424,11 +504,17 @@ def panel_red_queen(ax, d: EpochData, sb: StatsBundle, smooth: int):
     ax.yaxis.set_major_formatter(mticker.PercentFormatter(xmax=1.0))
     ax.set_xlabel("Generation")
     ax.legend(fontsize=9, loc="lower right")
+    persist_mark = "✓" if sb.rq_persist else "✗"
+    stasis_mark = "✓" if sb.rq_nonstasis else "✗"
     annotate(ax,
-             f"pred slope = {sb.rq_pred_slope:+.2e}/gen  p={sb.rq_pred_p:.3f}\n"
-             f"prey slope = {sb.rq_prey_slope:+.2e}/gen  p={sb.rq_prey_p:.3f}",
+             f"{persist_mark} persist  pred_surv={sb.rq_pred_surv_late:.1f} "
+             f"prey_surv={sb.rq_prey_surv_late:.1f}\n"
+             f"{stasis_mark} non-stasis  fluctuation (early→late):\n"
+             f"   pred {sb.rq_pred_fluct_early:.2f}→{sb.rq_pred_fluct_late:.2f}  "
+             f"prey {sb.rq_prey_fluct_early:.2f}→{sb.rq_prey_fluct_late:.2f}",
              loc="upper left")
-    style(ax, "Fitness (0..1)", "RED-QUEEN — joint fitness improvement")
+    style(ax, "Fitness (0..1)",
+          "RED-QUEEN — non-stasis (persistence + sustained fluctuation)")
 
 
 def panel_sensor_usage(ax, d: EpochData,
@@ -503,11 +589,8 @@ def render_split(d: EpochData, sb: StatsBundle, smooth: int,
 def render_report(d: EpochData, sb: StatsBundle, args, report_path: Path) -> str:
     def verdict(p: bool) -> str: return "**PASS**" if p else "_fail_"
 
-    osc1_pass = sb.osc1_neg_corr < -0.15 and sb.osc1_neg_lag >= 3
-    osc2_pass = (sb.osc2_p < args.osc2_alpha
-                 and sb.osc2_peak_lag >= args.osc2_lag_min)
-    rq_pass   = (sb.rq_pred_slope > 0 and sb.rq_pred_p < 0.10
-                 and sb.rq_prey_slope > 0 and sb.rq_prey_p < 0.10)
+    v = compute_verdicts(sb, args.osc2_alpha, args.osc2_lag_min)
+    osc1_pass, osc2_pass, rq_pass = v["OSC1"], v["OSC2"], v["RED-QUEEN"]
 
     lines = [
         "# biosim4 predator-prey analysis",
@@ -528,10 +611,13 @@ def render_report(d: EpochData, sb: StatsBundle, args, report_path: Path) -> str
          f"predator), permutation-significant | {verdict(osc2_pass)} | "
          f"lag = {sb.osc2_peak_lag:+d}, r = {sb.osc2_peak_corr:+.2f}, "
          f"perm-p = {sb.osc2_p:.3f} |"),
-        (f"| RED-QUEEN | Both fitness slopes positive (joint improvement) | "
-         f"{verdict(rq_pass)} | pred slope = {sb.rq_pred_slope:+.2e}/gen "
-         f"(p={sb.rq_pred_p:.3f}); prey slope = {sb.rq_prey_slope:+.2e}/gen "
-         f"(p={sb.rq_prey_p:.3f}) |"),
+        (f"| RED-QUEEN | Coevolution avoids stasis: both species persist and "
+         f"realised fitness keeps fluctuating (not frozen at an ESS) | "
+         f"{verdict(rq_pass)} | persist = {sb.rq_persist} "
+         f"(pred_surv={sb.rq_pred_surv_late:.1f}, prey_surv={sb.rq_prey_surv_late:.1f}); "
+         f"prey fluctuation {sb.rq_prey_fluct_early:.2f}→{sb.rq_prey_fluct_late:.2f}, "
+         f"pred {sb.rq_pred_fluct_early:.2f}→{sb.rq_pred_fluct_late:.2f} "
+         f"(floor {RQ_FLUCT_FLOOR}) |"),
         "",
         "## Notes",
         "",
@@ -543,9 +629,19 @@ def render_report(d: EpochData, sb: StatsBundle, args, report_path: Path) -> str
         "prey series are cross-correlated; a circular-shift permutation null "
         "preserves each series' own autocorrelation but destroys the "
         "cross-alignment.  Reporting peak lag and permutation p.",
-        "- **RED-QUEEN** is a linear regression of mean fitness vs generation "
-        "for each species.  Both slopes positive **and** small p-values means "
-        "both species are genuinely improving over time.",
+        "- **RED-QUEEN** follows the three-outcome framing of predator-prey "
+        "coevolution (Dieckmann, Marrow & Law 1995; cf. Cliff & Miller 1995): "
+        "a system either loses a species (extinction), settles to a constant-"
+        "phenotype ESS (stasis), or keeps cycling -- the Red Queen.  We detect "
+        "the last by ruling out the first two: both species persist in the "
+        "final quartile **and** detrended realised fitness keeps fluctuating "
+        f"(late sd > {RQ_FLUCT_FLOOR}) rather than freezing.  This deliberately "
+        "does **not** require fitness to rise: a capture is a predator gain and "
+        "a prey loss, so the two fitnesses are near zero-sum and a joint upward "
+        "trend is structurally impossible.  The reported pred/prey slopes are a "
+        "drift diagnostic only, not a pass condition.  Calibration: every "
+        "no-predation control gives late fluctuation 0.000 (fitness pinned at a "
+        "ceiling) and so fails, as required.",
     ]
     text = "\n".join(lines)
     report_path.parent.mkdir(parents=True, exist_ok=True)
@@ -568,8 +664,11 @@ def print_summary(d: EpochData, sb: StatsBundle):
     print(f"  OSC2  cross-corr peak       "
           f"lag = {sb.osc2_peak_lag:+d}  r = {sb.osc2_peak_corr:+.3f}  "
           f"perm-p = {sb.osc2_p:.3f}")
-    print(f"  RQ    pred slope = {sb.rq_pred_slope:+.2e}/gen  p = {sb.rq_pred_p:.3f}")
-    print(f"        prey slope = {sb.rq_prey_slope:+.2e}/gen  p = {sb.rq_prey_p:.3f}")
+    print(f"  RQ    persist = {sb.rq_persist}  "
+          f"(pred_surv = {sb.rq_pred_surv_late:.1f}, prey_surv = {sb.rq_prey_surv_late:.1f})")
+    print(f"        non-stasis = {sb.rq_nonstasis}  "
+          f"prey fluct {sb.rq_prey_fluct_early:.2f}->{sb.rq_prey_fluct_late:.2f}  "
+          f"pred fluct {sb.rq_pred_fluct_early:.2f}->{sb.rq_pred_fluct_late:.2f}")
     print(bar)
 
 

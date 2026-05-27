@@ -58,30 +58,30 @@ CTRL2_CHALLENGES=(20)          # open arena only for starvation control
 # ── B: Environment experiments (Bia) ─────────────────────────────────────────
 B1_CHALLENGES=(20 0 5 11)          # open, circle, corner, wall
 
-B2_MUTATION_RATES=(0.0001 0.001 0.01)
+B2_MUTATION_RATES=(0.0001 0.0005 0.001)
 B2_CHALLENGES=(20 0)               # open, circle
 
-B3_PRED_FRACTIONS=(0.1 0.25 0.50 0.75)
+B3_PRED_FRACTIONS=(0.1 0.2 0.33 0.50)
 B3_CHALLENGES=(20 0)               # open, circle
 
 # ── Y: Speed experiments (Yannic) ────────────────────────────────────────────
 # Y1: full predator × prey period grid, open arena (challenge=20)
-Y1_PRED_PERIODS=(1 1 1 2 2 2 3 3 3)
-Y1_PREY_PERIODS=(1 2 3 1 2 3 1 2 3)
+Y1_PRED_PERIODS=(1 1 1 2 2)
+Y1_PREY_PERIODS=(1 2 3 3 1)
 Y1_CHALLENGE=20
 
-# Y2/Y3: three representative combos — "label predPeriod preyPeriod"
+# Y2/Y3: four representative combos — "label predPeriod preyPeriod"
 #   lower period = faster (acts more often)
-Y_SPEED_COMBOS=("pred_fast 1 2" "balanced 1 1" "prey_fast 2 1")
+Y_SPEED_COMBOS=("pred_very_fast 1 3" "pred_fast 1 2" "balanced 1 1" "pred_slow 2 1")
 Y2_CHALLENGES=(20 0)               # open, circle
-Y3_MUTATION_RATES=(0.0001 0.001 0.01)
+Y3_MUTATION_RATES=(0.0001 0.0005 0.001)
 Y3_CHALLENGE=20
 
 # ── C: Predator selection pressure experiments (Claire) ──────────────────────
 # All four groups use challenge=20 (open arena) to isolate predator dynamics.
 # C2-C4 use a fixed starvation of 120 (mid-range) — update from C1 results.
 C_CHALLENGE=20
-C_FIXED_STARVATION=120   # ← update from C1 results before running C2/C3/C4
+C_FIXED_STARVATION=220   # from C1 results: st=220 gives 3/3 RED-QUEEN, healthy coevolution
 
 # C1: Starvation pressure sweep — how tight is the predator survival deadline?
 #   0 = starvation off (predators only die from age)
@@ -99,10 +99,11 @@ C2_MIN_CAPTURES=(0 1 2 3 5)
 #   Larger nets (5-8): more representational power but slower to evolve
 C3_MAX_NEURONS=(2 3 5 8)
 
-# C4: Mutation rate sweep — exploration vs exploitation in predator evolution
-#   Low rates: slow exploration, may get stuck in local optima
-#   High rates: fast exploration but may destroy functional networks
-C4_MUTATION_RATES=(0.0001 0.0005 0.001 0.005 0.01)
+# C4: Predator perception radius sweep — how far can predators sense prey?
+#   This is a predator-specific advantage: larger radius makes prey detectable
+#   from farther away, directly benefiting predator hunting without affecting prey.
+#   Fixed starvation = C_FIXED_STARVATION, challenge = C_CHALLENGE.
+C4_PERCEPTION_RADII=(3.0 6.0 9.0 12.0 16.0)
 
 # ── shared ────────────────────────────────────────────────────────────────────
 MAX_GENERATIONS=400
@@ -112,7 +113,7 @@ MAX_GENERATIONS=400
 # HEADLESS=false → shows SFML window during simulation
 # SAVE_VIDEO is independent of HEADLESS — video writing does not need the window.
 HEADLESS=true
-SAVE_VIDEO=true       # true = save .avi frames regardless of HEADLESS
+SAVE_VIDEO=true        # true = save .avi frames regardless of HEADLESS
 
 # SAVE_NETS=true  → save one predator + one prey neural net snapshot every
 #                   NETS_STRIDE generations, stored in images/ alongside frames.
@@ -139,7 +140,7 @@ CHECKPOINTS="100 200 300 400"
 # OSC2_ALPHA: p-value threshold for the OSC2 phase-lag test.
 #   0.05 = strict (standard significance)
 #   0.10 = relaxed (easier to pass, recommended for exploratory sweeps)
-OSC2_ALPHA=0.10
+OSC2_ALPHA=0.1
 
 # =============================================================================
 
@@ -255,8 +256,7 @@ run_one() {
     [[ "$HEADLESS" == "true" ]] && headless_flag="--headless"
     # shellcheck disable=SC2086
     "$BIO" "$ini" $headless_flag > "${run_dir}/simulator.stdout" 2>&1 || {
-        echo "    ! simulator failed — see ${run_dir}/simulator.stdout"
-        return
+        echo "    ! simulator exited non-zero (early termination?) — checking for log"
     }
 
     if [[ ! -f "${log_dir}/epoch-log.txt" ]]; then
@@ -297,7 +297,7 @@ y3_n=$(( ${#Y_SPEED_COMBOS[@]} * ${#Y3_MUTATION_RATES[@]} * ${#SEEDS[@]} ))
 c1_n=$(( ${#C1_STARVATION[@]}    * ${#SEEDS[@]} ))
 c2_n=$(( ${#C2_MIN_CAPTURES[@]}  * ${#SEEDS[@]} ))
 c3_n=$(( ${#C3_MAX_NEURONS[@]}   * ${#SEEDS[@]} ))
-c4_n=$(( ${#C4_MUTATION_RATES[@]} * ${#SEEDS[@]} ))
+c4_n=$(( ${#C4_PERCEPTION_RADII[@]} * ${#SEEDS[@]} ))
 total_n=$(( ctrl1_n + ctrl2_n + b1_n + b2_n + b3_n + y1_n + y2_n + y3_n + c1_n + c2_n + c3_n + c4_n ))
 
 echo "======================================================================"
@@ -329,7 +329,7 @@ echo "  ── Claire ───────────────────�
 should_run C1 && echo "  C1 starvation             : ${c1_n} runs" || echo "  C1 starvation             : skipped"
 should_run C2 && echo "  C2 min captures           : ${c2_n} runs" || echo "  C2 min captures           : skipped"
 should_run C3 && echo "  C3 max neurons            : ${c3_n} runs" || echo "  C3 max neurons            : skipped"
-should_run C4 && echo "  C4 mutation rate          : ${c4_n} runs" || echo "  C4 mutation rate          : skipped"
+should_run C4 && echo "  C4 perception radius      : ${c4_n} runs" || echo "  C4 perception radius      : skipped"
 echo "  ─────────────────────────────────────────────"
 echo "  Total (selected groups)   : ${total_n} runs"
 echo "======================================================================"
@@ -605,26 +605,28 @@ if should_run C3; then
 fi
 
 # =============================================================================
-#  C4 — MUTATION RATE SWEEP  (Claire)
-#  How does the exploration/exploitation tradeoff affect co-evolutionary dynamics?
-#  Fixed starvation = C_FIXED_STARVATION (update from C1 results).
+#  C4 — PREDATOR PERCEPTION RADIUS SWEEP  (Claire)
+#  How far can predators sense prey? A predator-specific advantage.
+#  Larger radius makes prey detectable from farther away, boosting hunting
+#  effectiveness without changing prey dynamics.
+#  Fixed starvation = C_FIXED_STARVATION, challenge = C_CHALLENGE.
 # =============================================================================
 if should_run C4; then
-    echo "── C4  Mutation rate (Claire) ──────────────────────────────────────────"
-    echo "    Fixed starvation = ${C_FIXED_STARVATION}  (update C_FIXED_STARVATION from C1)"
-    C4_DIR="${SWEEP_ROOT}/Claire/C4_mutation_rate"
+    echo "── C4  Predator perception radius (Claire) ────────────────────────────"
+    echo "    Fixed starvation = ${C_FIXED_STARVATION}"
+    C4_DIR="${SWEEP_ROOT}/Claire/C4_perception_radius"
     [[ $DRY_RUN -eq 0 ]] && mkdir -p "$C4_DIR"
     i=0
-    for mut in "${C4_MUTATION_RATES[@]}"; do
-        mut_tag="${mut//./_}"
-        label="mut${mut_tag}"
+    for radius in "${C4_PERCEPTION_RADII[@]}"; do
+        radius_tag="${radius//./p}"
+        label="rad${radius_tag}"
         for seed in "${SEEDS[@]}"; do
             i=$(( i + 1 ))
             echo "[C4 ${i}/${c4_n}]  ${label}"
             run_one "$C4_DIR" "$label" "$seed" \
-                "challenge"               "$C_CHALLENGE" \
-                "predatorStarvationSteps" "$C_FIXED_STARVATION" \
-                "pointMutationRate"       "$mut"
+                "challenge"                    "$C_CHALLENGE" \
+                "predatorStarvationSteps"      "$C_FIXED_STARVATION" \
+                "predatorPreyPerceptionRadius" "$radius"
         done
     done
     echo
@@ -747,14 +749,29 @@ if [[ $DRY_RUN -eq 0 ]]; then
             echo "| nn${nn} | ${nn} |"
         done
         echo ""
-        echo "### C4 Mutation rate (starvation=${C_FIXED_STARVATION})"
-        echo "| Folder | pointMutationRate |"
-        echo "|--------|------------------|"
-        for mut in "${C4_MUTATION_RATES[@]}"; do
-            echo "| mut${mut//./_} | ${mut} |"
+        echo "### C4 Predator perception radius (starvation=${C_FIXED_STARVATION})"
+        echo "| Folder | predatorPreyPerceptionRadius |"
+        echo "|--------|------------------------------|"
+        for radius in "${C4_PERCEPTION_RADII[@]}"; do
+            echo "| rad${radius//./p} | ${radius} |"
         done
     } > "$SUMMARY"
     echo "Wrote summary: ${SUMMARY}"
+fi
+
+# =============================================================================
+#  SWEEP OVERVIEW
+# =============================================================================
+if [[ $DRY_RUN -eq 0 ]]; then
+    echo "── Sweep overview ─────────────────────────────────────────────────────"
+    "$PYTHON" tools/sweep_overview.py \
+        --sweep      "$SWEEP_ROOT" \
+        --burn-in    "$BURN_IN" \
+        --osc2-alpha "$OSC2_ALPHA" \
+        > "${SWEEP_ROOT}/overview.stdout" 2>&1 \
+        && echo "Overview written to ${SWEEP_ROOT}/overview/" \
+        || echo "! Overview failed — see ${SWEEP_ROOT}/overview.stdout"
+    echo
 fi
 
 # =============================================================================
