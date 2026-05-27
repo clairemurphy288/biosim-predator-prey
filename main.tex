@@ -1,0 +1,391 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{tikz-cd}
+\usepackage{multicol}
+\usepackage{array}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{1\baselineskip}
+
+
+\begin{document}
+\title{Natural Computing - Final Report\\ Emergence of Predator–Prey Strategies via Neuroevolution}
+\author{Beatriz Ferrão, Claire Murphy, Yannic Talavera}
+% names in alphabetical order ;)
+\date{}
+\maketitle
+
+% Aim for maximum 10 pages
+
+\section{Problem Statement}
+
+Can predator-prey population dynamics emerge in a neuroevolutionary agent-based simulation
+without hard-coded ecological strategy, and under what parameter conditions are these dynamics
+most reliably produced?
+
+We reviewed the literature on predator-prey dynamics and identified three consistent
+behaviours as success criteria:
+
+\begin{itemize}
+    \item \textbf{Population oscillation.} Predator and prey population counts oscillate
+          anti-phase, as predicted by the classical Lotka-Volterra
+          model~\cite{lotka1925,volterra1926}.
+    \item \textbf{Phase-lag relationship.} Prey population peaks consistently precede predator
+          peaks—the empirical hallmark of consumer-resource cycles.
+    \item \textbf{Red Queen dynamics.} Both species persist across generations and realised
+          fitness continues to fluctuate rather than converging to a fixed-point equilibrium,
+          indicating ongoing coevolutionary pressure rather than
+          stasis~\cite{valen1973,dieckmann1995}.
+\end{itemize}
+
+\section{Related Work}
+
+
+
+\section{Approach}
+
+\subsection{Simulation Platform}
+
+We use \textit{biosim4}~\cite{biosim4}, an open-source agent-based neuroevolution simulator.
+Each simulation runs on a $128 \times 128$ discrete grid populated by 500 agents.
+Time is discretized into \emph{generations}, each comprising 500 simulation steps; all
+experiments run for 400 generations.
+Within each generation, agents sense their local environment through a fixed sensor set, pass
+signals through an evolved neural network, and execute the resulting action each simulation
+step (subject to per-species action-period gates, described below).
+Agents that survive to the end of the generation are eligible for reproduction; offspring
+inherit a mutated copy of the parent genome.
+
+\subsubsection{Genome and Neural Architecture}
+
+Each agent's neural network is encoded by a variable-length genome (initial length 14 genes;
+maximum 300).
+Genes specify directed connections between sensory inputs, hidden neurons, and motor outputs;
+network topology and connection weights are therefore evolved jointly.
+The number of hidden neurons is bounded by \texttt{maxNumberNeurons} (default 6).
+Genetic operators include point mutation (\texttt{pointMutationRate} $= 0.001$) and gene
+insertion/deletion (\texttt{geneInsertionDeletionRate} $= 0.0001$).
+No crossover is applied; reproduction is asexual.
+
+\subsection{Two-Species Architecture}
+
+Setting \texttt{predatorPreyEnabled = true} splits the population into two co-evolving
+species.
+A fixed fraction \texttt{predatorFraction} of the 500 agents are initialised as predators each
+generation (default 0.30); the remainder are prey.
+
+\textbf{Prey fitness} is the fraction of the generation survived:
+$f_{\mathrm{prey}} = \text{age} / \texttt{stepsPerGeneration}$.
+Prey are therefore selected jointly by environmental-challenge survival and predator avoidance.
+
+\textbf{Predator fitness} is determined by hunting success:
+$f_{\mathrm{pred}} = \min\!\bigl(1,\; \text{captures} / \texttt{predatorCaptureNorm}\bigr)$,
+with \texttt{predatorCaptureNorm} $= 5$.
+A predator must also make at least \texttt{predatorMinCapturesToReproduce} captures to be
+reproduction-eligible (default 3), enforcing a minimum hunting-competence threshold.
+
+Because a capture simultaneously increments predator score and terminates a prey agent, the
+two fitness series are near zero-sum by construction (empirically, Pearson $r \approx -0.97$
+between generation-mean fitnesses across runs).
+This is the reason why the classical criterion of ``both fitnesses trending upward'' is
+structurally unreachable in this simulator and would be a misleading success criterion.
+
+\textbf{Starvation feedback.}
+A predator that fails to make a kill within \texttt{predatorStarvationSteps} consecutive
+simulation steps dies mid-generation.
+This couples predator survival to prey abundance: when prey become scarce (because they have
+evolved better evasion), more predators starve, relaxing hunting pressure and allowing the prey
+population to recover—the negative feedback term that sustains Lotka-Volterra
+oscillations~\cite{lotka1925,volterra1926}.
+
+\textbf{Action periods.}
+Each species evaluates its neural network and executes an action every $N$th simulation step,
+where $N$ is the species-specific action period (\texttt{predatorActionPeriod},
+\texttt{preyActionPeriod}).
+A period of~1 means the species acts at every step; a period of~2 means it acts every other
+step, and so on.
+Age and starvation timers tick every step regardless of action period, so larger periods reduce
+both the number of decisions taken per generation and the window available for hunting or
+evasion.
+
+\subsection{Key Experimental Parameters}
+
+Table~\ref{tab:params} lists the eight parameters varied across our experiments.
+Each was chosen to probe a distinct hypothesis about the conditions necessary for
+predator-prey coevolution.
+
+\begin{table}[H]
+\centering
+\caption{Experimental parameters and their roles.}
+\label{tab:params}
+\begin{tabular}{llll}
+\toprule
+Parameter & Default & Range swept & Role \\
+\midrule
+\texttt{challenge}                       & 20    & \{20, 0, 5, 11\}   & Environmental geometry \\
+\texttt{predatorFraction}                & 0.30  & 0.10--0.50         & Population balance \\
+\texttt{predatorActionPeriod}            & 1     & 1--3               & Predator action speed \\
+\texttt{preyActionPeriod}                & 1     & 1--3               & Prey action speed \\
+\texttt{predatorStarvationSteps}         & 200   & 0--400             & Ecological feedback strength \\
+\texttt{pointMutationRate}               & 0.001 & $10^{-4}$--$10^{-3}$ & Evolutionary exploration rate \\
+\texttt{maxNumberNeurons}                & 6     & 2--8               & Neural network capacity \\
+\texttt{predatorMinCapturesToReproduce}  & 3     & 0--5               & Reproductive selection pressure \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Statistical Validation}
+
+We use three complementary tests, each targeting a distinct empirical signature of
+predator-prey coevolution.
+All tests operate on per-generation epoch logs (predator and prey survivor counts and
+mean fitness values).
+The first 50 generations are excluded as a burn-in to discard bootstrap noise before
+meaningful evolutionary dynamics emerge.
+
+\textbf{OSC1 — Population Oscillation.}
+The Lotka-Volterra model predicts that predator and prey population counts oscillate
+anti-phase~\cite{lotka1925,volterra1926}.
+We test this by computing the autocorrelation of the linearly detrended prey survivor series;
+linear detrending removes any long-run population drift so that only the oscillatory component
+is assessed.
+OSC1 passes if the first negative autocorrelation peak satisfies $r < -0.15$ at lag
+$\geq 3$ generations.
+
+\textbf{OSC2 — Phase Lag.}
+Consumer-resource cycles predict that prey population peaks systematically \emph{precede}
+predator peaks.
+We compute the cross-correlation of the detrended predator and prey survivor series and
+identify the peak correlation at positive lags (prey leads predator).
+Statistical significance is assessed by a permutation test (1000 block permutations of the
+predator series) at $\alpha = 0.10$.
+OSC2 passes if the peak lag is $\geq 2$ generations and the permutation $p$-value is below the
+threshold.
+This test is the headline diagnostic for oscillatory coevolution: it is robust to run-by-run
+variation in cycle amplitude and does not require the oscillations to be large enough to
+trigger OSC1.
+
+\textbf{RED-QUEEN — Non-Stasis.}
+Following the three-outcome framing of Dieckmann, Marrow, and Law~\cite{dieckmann1995},
+any predator-prey system converges to one of three regimes: extinction of one species,
+convergence to a fixed-point ESS (evolutionary stasis), or persistent Red Queen cycling.
+Because realised fitness is zero-sum, requiring a directional upward trend in both fitnesses
+simultaneously—as in the original Van Valen formulation~\cite{valen1973}—is
+structurally impossible.
+Instead, we test for the third outcome by ruling out the first two.
+The test passes if and only if:
+\begin{enumerate}
+  \item \textbf{Persistence:} both species are present in the final quartile of generations
+        (mean survivors $\geq 20\%$ of the per-species early-run baseline); and
+  \item \textbf{Non-stasis:} the standard deviation of the linearly detrended realised fitness
+        series over the final quartile exceeds 0.02 for at least one species.
+\end{enumerate}
+Calibration: all no-predation control runs produce a late-window fitness SD of exactly 0.000
+(fitness is pinned at a ceiling when predation is absent), so they fail as required.
+Treatment runs with active predation produce late-window SDs of 0.02--0.33, confirming the
+test is reachable under realistic coevolutionary conditions.
+
+\subsection{Experimental Design}
+
+All experiments share the baseline configuration described above.
+Each treatment group varies one or two parameters at a time.
+Two no-predation control groups (\texttt{predatorPreyEnabled = false}) are included to verify
+that all three statistical tests fail when predation is absent, confirming that any passing
+result in a treatment group is caused by predation rather than an artefact of the simulation.
+
+\textbf{Control (CTRL1, CTRL2).}
+CTRL1 sweeps the same four environments as B1 with predation disabled.
+CTRL2 uses the open arena with predation disabled and starvation turned off
+(\texttt{predatorStarvationSteps = 0}).
+All three tests must fail on every control run for the experimental results to be
+causally interpretable.
+
+\textbf{B: Environment experiments.}
+B1 tests whether predator-prey dynamics emerge across four arena geometries—open arena
+(\texttt{challenge = 20}), circle (\texttt{challenge = 0}), corner
+(\texttt{challenge = 5}), and wall (\texttt{challenge = 11})—to isolate the effect of
+prey environmental pressure on coevolution.
+B2 crosses mutation rate with two environments to examine whether evolutionary exploration
+rate interacts with geometric difficulty.
+B3 sweeps predator fraction (0.10--0.50) to identify the population balance that sustains
+stable coevolution.
+
+\textbf{Y: Speed experiments.}
+Y1 sweeps five predator/prey action-period combinations in the open arena—balanced (1,1),
+predator fast (1,2), predator very fast (1,3), predator slow/prey fast (2,1), and
+predator slow (2,3)—to map how speed asymmetry affects coevolutionary dynamics.
+Y2 extends four representative speed configurations (predator very fast, predator fast,
+balanced, predator slow) across two environments; Y3 crosses them with mutation rate to
+assess whether speed effects interact with evolutionary exploration.
+
+\textbf{C: Selection pressure experiments.}
+C1 sweeps predator starvation pressure (0--400 steps) to identify the feedback strength that
+produces Lotka-Volterra-style population regulation.
+C2 sweeps the reproduction threshold (0--5 kills required to breed) to test whether stronger
+hunting-competence selection drives an arms race.
+C3 varies maximum hidden neurons (2--8) to assess whether network expressiveness limits the
+emergence of hunting and evasion strategies.
+C4 sweeps predator perception radius (3--16 world units) to test whether the range at which
+predators can sense prey—a pure predator-side advantage—shifts the coevolutionary balance.
+
+
+\section{Results}
+\subsection{Starvation Pressure as Ecological Feedback} % Claire (C1)
+\subsection{Reproductive Gating}                        % Claire (C2)
+\subsection{Neural Network Capacity}                    % Claire (C3)
+\subsection{Predator Perception Radius}                 % Claire (C4)
+\subsection{Effect of Environment Geometry}             % Bia (B1)
+
+\textbf{Question:} Does the spatial structure of the arena affect whether predator-prey
+coevolution emerges?
+
+We ran four arena geometries — open arena, circle, corner, and wall — each with 3 independent
+random seeds (12 runs total, 400 generations each).
+In each geometry, prey must solve a different survival challenge: staying inside a circular
+boundary, surviving in a corner region, avoiding a wall, or simply outlasting predators in an
+unconstrained space.
+Predators always have the same goal regardless of geometry: capture enough prey to reproduce.
+
+\begin{table}[H]
+\centering
+\caption{B1 results: how many of 3 independent seeds showed each coevolution signature per
+environment. \emph{Prey leads predator} = prey population peaks first, then predator peaks
+follow (classic boom-bust cycle). \emph{Red Queen} = both species survive and fitness keeps
+fluctuating rather than freezing.}
+\label{tab:b1}
+\begin{tabular}{lcccc}
+\toprule
+Environment & \shortstack{Population\\oscillation\\(OSC1)} & \shortstack{Prey leads\\predator\\(OSC2)} & \shortstack{Red Queen\\non-stasis\\(RQ)} & \shortstack{Mean prey\\alive per gen} \\
+\midrule
+Circle  & 1/3 & \textbf{3/3} & \textbf{3/3} & 25.9 \\
+Corner  & 0/3 & \textbf{3/3} & \textbf{3/3} & 56.1 \\
+Wall    & 0/3 & \textbf{3/3} & 2/3          & 78.2 \\
+Open    & 1/3 & 2/3          & 2/3          & 88.1 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    % Replace path below with figures/B1_overview.png after copying the file
+    \includegraphics[width=\textwidth]{Output/Sweep/run_20260527_084108/overview/Bia__B1_environment.png}
+    \caption{B1 sweep overview across four environments, 3 seeds each.
+    \textbf{(A)} Pass rates per environment and test: green = all seeds pass, red = none pass.
+    \textbf{(B)} Cross-correlation between predator and prey population counts over time.
+    A trough at lag\,=\,0 means the two populations are anti-correlated at any given moment
+    (when one is high the other is low); a positive peak at a positive lag means prey peaked
+    first, predator followed — the classic predator-prey boom-bust signature.
+    The wall environment (green) shows the strongest signal.
+    \textbf{(C)} The lag at which predator and prey counts are most correlated, per seed.
+    Positive values confirm prey peaks before predator peaks.
+    \textbf{(D)} How much prey fitness is still fluctuating in the final quarter of the run.
+    Bars above the dashed line indicate the system is still evolving rather than frozen at
+    an equilibrium (Red Queen dynamics).}
+    \label{fig:b1_overview}
+\end{figure}
+
+\textbf{Spatial structure is the key enabler of coevolution.}
+The circle and corner environments produced the clearest coevolution signal: in all 3 seeds,
+prey population peaks consistently preceded predator peaks (OSC2), and fitness kept
+fluctuating throughout the run rather than settling to an equilibrium (Red Queen).
+This is likely because constrained arenas force prey into predictable locations, increasing
+predator encounter rates and creating a tighter feedback loop: more prey $\to$ predators
+thrive $\to$ prey decline $\to$ predators decline $\to$ prey recover.
+
+\textbf{The open arena is less reliable.}
+Without spatial constraints, prey can spread across the full $128 \times 128$ grid, reducing
+encounter rates and weakening the ecological coupling.
+OSC2 passes in only 2 of 3 seeds, and in one seed (seed 3) the predator population actually
+peaks \emph{before} prey — the cycle is inverted — suggesting the coevolutionary dynamic
+broke down in that run.
+
+\textbf{The wall environment produces extreme population imbalances.}
+In the wall geometry, predators struggled to hunt efficiently in a narrow spatial band,
+leading to very few predator survivors per generation ($\sim 1.6$--$13.1$) relative to prey
+($\sim 8$--$120$ depending on the seed).
+The phase relationship (OSC2) still passes consistently, but the Red Queen test fails in one
+seed because the predator population becomes so small that its fitness signal essentially
+freezes — the system is technically coevolving but predators are barely present.
+
+\textbf{Large-amplitude population oscillations (OSC1) are rare.}
+The classic Lotka-Volterra prediction of clearly periodic boom-bust cycles (measurable via
+autocorrelation) passes in at most 1 of 3 seeds in any environment.
+This does not mean coevolution is absent — the phase relationship (OSC2) and fitness
+fluctuation (Red Queen) both pass reliably — but that oscillations in this simulator are
+damped rather than large and regular.
+400 generations may simply not be long enough for the oscillations to build the amplitude
+needed to register in an autocorrelation test.
+
+\subsection{Mutation Rate and Environment}              % Bia (B2)
+\subsection{Predator-Prey Population Balance}           % Bia (B3)
+\subsection{Speed Asymmetry: Full Grid}                 % Yannic (Y1)
+\subsection{Speed Asymmetry Across Environments}        % Yannic (Y2)
+\subsection{Speed Asymmetry and Mutation Rate}          % Yannic (Y3)
+
+\section{Discussion}
+
+\section{Conclusion}
+
+\section{Author Contributions}
+
+\section{Code}
+
+
+\newpage
+\begin{thebibliography}{9}
+
+\bibitem{biosim4}
+Cox, D.
+\textit{biosim4: An Agent-Based Neuroevolution Simulator}.
+GitHub repository. \url{https://github.com/davidrmh/biosim4}, 2021.
+
+\bibitem{lotka1925}
+Lotka, A.~J.
+\textit{Elements of Physical Biology}.
+Williams \& Wilkins, Baltimore, 1925.
+
+\bibitem{volterra1926}
+Volterra, V.
+Fluctuations in the abundance of a species considered mathematically.
+\textit{Nature}, 118:558--560, 1926.
+
+\bibitem{valen1973}
+Van Valen, L.
+A new evolutionary law.
+\textit{Evolutionary Theory}, 1:1--30, 1973.
+
+\bibitem{dieckmann1995}
+Dieckmann, U., Marrow, P., and Law, R.
+Evolutionary cycling in predator-prey interactions: population dynamics and the Red Queen.
+\textit{Journal of Theoretical Biology}, 176(1):91--102, 1995.
+
+\bibitem{cliff1995}
+Cliff, D. and Miller, G.~F.
+Tracking the red queen: Measurements of adaptive progress in co-evolutionary simulations.
+In \textit{Advances in Artificial Life (ECAL 1995)}, Lecture Notes in Computer Science,
+vol.\ 929, pp.\ 200--218. Springer, 1995.
+
+\bibitem{chen2020predator}
+Chen, Y. and Gao, Y.
+\textit{Evolving Predator--Prey Agents Using Neuroevolution in Simulated and Real-World
+Environments}.
+arXiv preprint arXiv:2010.15792, 2020.
+
+\bibitem{jim2000talking}
+Jim, K.-C. and Giles, C.~L.
+Talking helps: Evolving communicating agents for the predator--prey pursuit problem.
+\textit{Artificial Life}, 6(3):237--254, 2000.
+
+\bibitem{paper3}
+Yong, C.~H. and Miikkulainen, R.
+Coevolution of role-based cooperation in multi-agent systems.
+\textit{IEEE Transactions on Autonomous Mental Development}, 1(3), 2009.
+
+\end{thebibliography}
+
+\end{document}
