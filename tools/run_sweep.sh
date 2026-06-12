@@ -40,7 +40,7 @@ set -euo pipefail
 #   "Yannic"       → Y1 Y2 Y3
 #   "Claire"       → C1 C2 C3 C4
 #   "B1 Y2 C3"     → any explicit list
-RUN_GROUPS="${RUN_GROUPS:-all}"
+RUN_GROUPS="${RUN_GROUPS:-C4}"
 
 SEEDS=(1 2 3)
 
